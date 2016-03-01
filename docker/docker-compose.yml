@@ -1,0 +1,22 @@
+mongodb:
+  image: mongo:2
+  container_name: mongodb
+
+rabbitmq:
+  image: rabbitmq:3-management
+  container_name: rabbitmq
+
+worker:
+  image: fts-worker
+  links:
+    - mongodb
+    - rabbitmq
+  env_file:
+    dev.env
+
+sched:
+  image: fts-sched
+  links:
+    - rabbitmq
+  env_file:
+    dev.env
