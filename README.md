@@ -8,12 +8,11 @@ Sandbox for playing and prototyping ideas for FTS
 * A [Go](https://golang.org/doc/install) environment ready
 * docker and docker-compose
 
-## Run it
-### Build
+## Build
 Just run `make` to trigger the build, and the installation of the resulting binaries
 into the output directoy (`build` by default).
 
-## Run it
+## Run
 If the previous step worked just fine, you can run the service easily doing `make up`.
 With this, a set of docker containers will be built with the binaries, and
 docker-compose will be used to spawn a predefined set of containers (including
