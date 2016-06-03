@@ -15,6 +15,40 @@
 
 # FTS REST container
 
-FROM centos:7
-RUN yum clean all && yum update -y
-RUN yum install pip httpd mod_gridsite
+FROM fts-base
+
+# Copy required binaries
+ADD "build/fts-gated" "build/fts-x509d" "/usr/bin/"
+
+# Install dependencies
+RUN yum install -y httpd gridsite mod_wsgi lcg-CA voms-config-all python-pip
+RUN pip install --upgrade pip
+RUN yum install -y gcc openssl-devel python-devel swig
+
+# Add apache user to fts group
+RUN usermod -a -G fts apache
+
+# Supervisor configuration
+COPY "docker/rest/supervisord.conf" "/etc/supervisor/conf.d/supervisord.conf"
+
+# Prune default httpd configuration
+RUN rm -rf /etc/httpd/conf.d/*
+
+# Install REST
+COPY "rest" "/tmp/rest/"
+RUN pip install "/tmp/rest"
+RUN pip install "/tmp/rest/src/fts3rest"
+COPY "rest/src/fts3rest/fts3rest.wsgi" "/usr/libexec/fts3rest.wsgi"
+
+# Install REST configuration
+COPY "rest/src/fts3rest/fts3rest.conf" "/etc/httpd/conf.d/"
+COPY "rest/src/fts3rest/fts3rest.ini" "/etc/fts3/"
+
+# Cleanup
+RUN rm -rfv "/tmp/rest"
+
+# Expose REST port
+EXPOSE 8446
+
+# Start supervisor
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

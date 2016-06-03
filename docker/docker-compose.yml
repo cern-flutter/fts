@@ -20,3 +20,13 @@ sched:
     - rabbitmq
   env_file:
     dev.env
+
+rest:
+  image: fts-rest
+  links:
+    - mongodb
+    - rabbitmq
+  env_file:
+    dev.env
+  ports:
+    - "8446:8446"
