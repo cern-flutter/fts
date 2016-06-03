@@ -5,7 +5,7 @@ Sandbox for playing and prototyping ideas for FTS
 ## Requirements
 * [libdirq](http://grid-deployment.web.cern.ch/grid-deployment/dms/fts3/repos/testing/el6/x86_64/)
 * gfal2-devel
-* A [Go](https://golang.org/doc/install) environment ready
+* A [Go](https://golang.org/doc/install) environment installed and ready
 * docker and docker-compose
 
 ## Build
@@ -13,14 +13,20 @@ Just run `make` to trigger the build, and the installation of the resulting bina
 into the output directoy (`build` by default).
 
 ## Run
-If the previous step worked just fine, you can run the service easily doing `make up`.
-With this, a set of docker containers will be built with the binaries, and
-docker-compose will be used to spawn a predefined set of containers (including
-RabbitMQ and MongoDB) ready to try the service.
+If the previous step worked just fine, for running a fully functional instance
+easily, you need to do:
 
-You can also do `make docker` to build the containers, and then run manually as you want,
-or even run manually the binaries, or from sources (`go run bin/fts-workerd/*.go`,
-for instance).
+### make docker
+To build the docker images. It has to be done manually so we avoid building all
+images from scratch before launching compose, when we may be interested on
+rebuilding only one of them.
+
+### make up
+This command will trigger:
+
+  * The creation of a local CA under ~/.dev-ca (if it doesn't exist)
+  * The creation of a host certificate and key under ~/.dev-cert (if it doesn't exist)
+  * docker-compose
 
 Ideally, components should be pluggable, which means you can combine ways
 of running the service.
