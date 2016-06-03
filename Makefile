@@ -1,6 +1,8 @@
 OUTDIR=build
+CADIR=${HOME}/.dev-ca
+CERTDIR=${HOME}/.dev-cert
 
-.PHONY: all install
+.PHONY: all install ca cert up
 
 all: install
 
@@ -11,7 +13,7 @@ $(OUTDIR):
 install: $(OUTDIR)
 	export GOBIN=`readlink -f $(OUTDIR)`; echo ./bin/* | xargs go install
 
-docker: docker-worker docker-sched
+docker: docker-worker docker-sched docker-rest
 
 docker-base:
 	docker build -t fts-base -f docker/base/Dockerfile .
@@ -22,8 +24,20 @@ docker-worker: docker-base install
 docker-sched: docker-base install
 	docker build -t fts-sched -f docker/scheduler/Dockerfile .
 
-docker-rest: docker-base
+docker-rest: docker-base install
 	docker build -t fts-rest -f docker/rest/Dockerfile .
 
-up: docker
-	cd docker; docker-compose up
+ca: $(CADIR)/private/ca_key.pem
+
+$(CADIR)/private/cakey.pem:
+	./hack/create_ca.sh "$(CADIR)"
+
+cert: $(CERTDIR)/hostcert.pem
+
+$(CERTDIR)/hostcert.pem: $(CADIR)/private/cakey.pem
+	./hack/generate_cert.sh "$(CADIR)" "/CN="$(shell hostname -f) "$(CERTDIR)"
+	cp $(CADIR)/certs/cacert.pem $(CERTDIR)
+
+# We do not put docker as a dependency to avoid triggering all the builds with no actual need
+up: $(CERTDIR)/hostcert.pem
+	cd docker; CERT_DIR=${CERDIR}; docker-compose up

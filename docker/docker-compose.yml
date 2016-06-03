@@ -30,3 +30,7 @@ rest:
     dev.env
   ports:
     - "8446:8446"
+  environment:
+    CERT_DIR:
+  volumes:
+    - "${CERT_DIR}:/etc/grid-security/localhost"

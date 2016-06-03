@@ -41,8 +41,8 @@ RUN pip install "/tmp/rest/src/fts3rest"
 COPY "rest/src/fts3rest/fts3rest.wsgi" "/usr/libexec/fts3rest.wsgi"
 
 # Install REST configuration
-COPY "rest/src/fts3rest/fts3rest.conf" "/etc/httpd/conf.d/"
-COPY "rest/src/fts3rest/fts3rest.ini" "/etc/fts3/"
+COPY "docker/rest/fts3rest.conf" "/etc/httpd/conf.d/"
+COPY "docker/rest/fts3rest.ini" "/etc/fts3/"
 
 # Cleanup
 RUN rm -rfv "/tmp/rest"
