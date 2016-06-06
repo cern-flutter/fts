@@ -31,4 +31,4 @@ rest:
   ports:
     - "8446:8446"
   volumes:
-    - "${CERT_DIR}:/etc/grid-security/localhost"
+    - "${HOME}/.dev-cert:/etc/grid-security/localhost"
