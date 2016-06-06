@@ -39,18 +39,6 @@ func setupLogging() {
 		fallthrough
 	case 3:
 		os.Setenv("CGSI_TRACE", "1")
-		os.Setenv("GLOBUS_FTP_CLIENT_DEBUG_LEVEL", "255")
-		os.Setenv("GLOBUS_FTP_CONTROL_DEBUG_LEVEL", "10")
-		os.Setenv("GLOBUS_GSI_AUTHZ_DEBUG_LEVEL", "2")
-		os.Setenv("GLOBUS_CALLOUT_DEBUG_LEVEL", "5")
-		os.Setenv("GLOBUS_GSI_CERT_UTILS_DEBUG_LEVEL", "5")
-		os.Setenv("GLOBUS_GSI_CRED_DEBUG_LEVEL", "10")
-		os.Setenv("GLOBUS_GSI_PROXY_DEBUG_LEVEL", "10")
-		os.Setenv("GLOBUS_GSI_SYSCONFIG_DEBUG_LEVEL", "1")
-		os.Setenv("GLOBUS_GSI_GSS_ASSIST_DEBUG_LEVEL", "5")
-		os.Setenv("GLOBUS_GSSAPI_DEBUG_LEVEL", "5")
-		os.Setenv("GLOBUS_NEXUS_DEBUG_LEVEL", "1")
-		os.Setenv("GLOBUS_GIS_OPENSSL_ERROR_DEBUG_LEVEL", "1")
 		os.Setenv("XRD_LOGLEVEL", "Dump")
 		os.Setenv("GFAL2_GRIDFTP_DEBUG", "1")
 		gfal2.SetLogLevel(gfal2.LogLevelDebug)
