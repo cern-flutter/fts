@@ -262,7 +262,7 @@ func (copy *UrlCopy) runTransfer(transfer *tasks.Transfer) {
 
 	log.Infof("File size: %d", srcStat.Size())
 
-	if transfer.Filesize != nil && *transfer.Filesize != srcStat.Size() {
+	if transfer.Filesize != nil && *transfer.Filesize != 0 && *transfer.Filesize != srcStat.Size() {
 		transfer.Status.Error = &tasks.TransferError{
 			Scope: tasks.ScopeSource,
 			Code:  syscall.EINVAL,
