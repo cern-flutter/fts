@@ -21,7 +21,7 @@ FROM fts-base
 ADD "build/fts-gated" "build/fts-x509d" "/usr/bin/"
 
 # Install dependencies
-RUN yum install -y httpd gridsite mod_wsgi lcg-CA voms-config-all python-pip
+RUN yum install -y httpd gridsite mod_wsgi python-pip
 RUN pip install --upgrade pip
 RUN yum install -y gcc openssl-devel python-devel swig
 

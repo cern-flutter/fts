@@ -17,13 +17,13 @@
 package jobstore
 
 import (
-	"gitlab.cern.ch/flutter/fts/types"
+	"gitlab.cern.ch/flutter/fts/types/tasks"
 	"time"
 )
 
 type (
 	JobWithExpiration struct {
-		types.Job
+		tasks.Job
 
 		// Stores the time the job enters a terminal state, so we can purge the database
 		FinishTime time.Time `json:"finish_time" bson:"finish_time`

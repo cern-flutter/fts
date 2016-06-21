@@ -13,18 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# FTS REST container
+# FTS Database container
 
-FROM fts-base
-
-# Install requirements
-RUN yum install -y gfal2-all libdirq
-
-# Copy required binaries
-ADD "build/fts-x509d" "build/url-copy" "build/fts-workerd" "/usr/bin/"
-
-# Supervisor configuration
-COPY "docker/worker/supervisord.conf" "/etc/supervisor/conf.d/supervisord.conf"
-
-# Start supervisor
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+FROM postgres:9.4
+RUN mkdir -p "/docker-entrypoint-initdb.d/"
+ADD "db/fts-schema-0.0.0.sql" "/docker-entrypoint-initdb.d/"

@@ -24,6 +24,8 @@ ADD "http://repository.egi.eu/sw/production/cas/1/current/repo-files/EGI-trustan
 RUN yum clean all && yum update -y
 RUN yum install -y supervisor
 
+RUN yum install -y lcg-CA voms-config-all
+
 RUN mkdir -p "/var/log/fts"
 RUN mkdir -p "/var/lib/fts"
 

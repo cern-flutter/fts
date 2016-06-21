@@ -1,6 +1,10 @@
-mongodb:
-  image: mongo:2
-  container_name: mongodb
+database:
+  image: fts-db
+  container_name: fts-db
+  env_file:
+    dev.env
+  ports:
+    - "15432:5432"
 
 rabbitmq:
   image: rabbitmq:3-management
@@ -9,7 +13,7 @@ rabbitmq:
 worker:
   image: fts-worker
   links:
-    - mongodb
+    - database
     - rabbitmq
   env_file:
     dev.env
@@ -24,7 +28,7 @@ sched:
 rest:
   image: fts-rest
   links:
-    - mongodb
+    - database
     - rabbitmq
   env_file:
     dev.env

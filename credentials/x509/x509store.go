@@ -18,12 +18,12 @@ package x509
 
 import (
 	"crypto/x509"
+	"database/sql"
 	"encoding/json"
 	log "github.com/Sirupsen/logrus"
+	_ "github.com/lib/pq"
 	"gitlab.cern.ch/flutter/fts/errors"
 	"gitlab.cern.ch/flutter/go-proxy"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 	"time"
 )
 
@@ -118,82 +118,45 @@ func (r *ProxyRequest) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// GetBSON serializes a proxy into a BSON struct.
-func (p *Proxy) GetBSON() (interface{}, error) {
-	aux := serialProxy{
-		DelegationID: p.DelegationID,
-		NotAfter:     p.Certificate.NotAfter,
-		Pem:          string(p.Encode()),
-	}
-	return aux, nil
-}
-
-// SetBSON deserializes a proxy from a BSON struct.
-func (p *Proxy) SetBSON(raw bson.Raw) error {
-	var aux serialProxy
-	if err := raw.Unmarshal(&aux); err != nil {
-		return err
-	}
-
-	if err := p.Decode([]byte(aux.Pem)); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// GetBSON serializes a proxy request into a BSON message.
-func (r *ProxyRequest) GetBSON() (interface{}, error) {
-	aux := serialRequest{
-		DelegationID: r.DelegationID,
-		Request:      string(r.EncodeRequest()),
-		Key:          string(r.EncodeKey()),
-	}
-	return aux, nil
-}
-
-// SetBSON deserializes a request from a BSON struct.
-func (r *ProxyRequest) SetBSON(raw bson.Raw) error {
-	var aux serialRequest
-	if err := raw.Unmarshal(&aux); err != nil {
-		return err
-	}
-
-	if err := r.Decode([]byte(aux.Request), []byte(aux.Key)); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // Implementation
 type storeImpl struct {
-	session *mgo.Session
-	db      *mgo.Database
+	db *sql.DB
 }
 
 // NewStore creates a new instance of a X509 store.
-func NewStore(url string, db string) (Store, error) {
-	session, err := mgo.Dial(url)
+func NewStore(addr string) (Store, error) {
+	db, err := sql.Open("postgres", addr)
 	if err != nil {
 		return nil, err
 	}
-	return &storeImpl{session, session.DB(db)}, err
+	return &storeImpl{db}, nil
 }
 
 func (s *storeImpl) Close() {
-	s.session.Close()
+	s.db.Close()
 }
 
 func (s *storeImpl) Get(delegationID string) (*Proxy, error) {
 	var proxy Proxy
-	if err := s.db.C("x509_proxies").Find(bson.M{"delegation_id": delegationID}).One(&proxy); err != nil {
-		if err == mgo.ErrNotFound {
-			err = errors.ErrNotFound
-			return nil, err
-		}
+
+	rows, err := s.db.Query("SELECT pem FROM t_x509_proxies WHERE delegation_id = $1", delegationID)
+	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		return nil, errors.ErrNotFound
+	}
+
+	var pem string
+	if err = rows.Scan(&pem); err != nil {
+		return nil, err
+	}
+	if err = proxy.Decode([]byte(pem)); err != nil {
+		return nil, err
+	}
+
 	return &proxy, nil
 }
 
@@ -209,46 +172,56 @@ func (s *storeImpl) Update(proxy *Proxy) error {
 		s.Delete(proxy.DelegationID)
 	}
 
-	collection := s.db.C("x509_proxies")
-	if _, err := collection.Upsert(bson.M{"delegation_id": proxy.DelegationID}, proxy); err != nil {
-		return err
-	}
-	return nil
+	_, err = s.db.Exec(
+		`INSERT INTO t_x509_proxies
+			(delegation_id, user_dn, not_after, pem) VALUES
+			($1, $2, $3, $4)
+		`, proxy.DelegationID, proxy.Subject, proxy.Certificate.NotAfter, proxy.Encode())
+	return err
 }
 
 func (s *storeImpl) Delete(delegationID string) error {
-	collection := s.db.C("x509_proxies")
-	if err := collection.Remove(bson.M{"delegation_id": delegationID}); err != nil {
-		if err == mgo.ErrNotFound {
-			return errors.ErrNotFound
-		}
-		return err
-	}
-	return nil
+	_, err := s.db.Exec(`DELETE FROM t_x509_proxies WHERE delegation_id = $1`, delegationID)
+	return err
 }
 
 func (s *storeImpl) List() ([]string, error) {
 	var ids []string
-	var proxy Proxy
-	iter := s.db.C("x509_proxies").Find(nil).Iter()
-	for iter.Next(&proxy) {
-		ids = append(ids, proxy.DelegationID)
+	rows, err := s.db.Query("SELECT delegation_id FROM t_x509_proxies")
+	if err != nil {
+		return nil, err
 	}
-	err := iter.Close()
+	defer rows.Close()
+
+	for rows.Next() {
+		var id string
+		if err = rows.Scan(&id); err != nil {
+			ids = append(ids, id)
+		}
+	}
+
 	return ids, err
 }
 
 func (s *storeImpl) GetRequest(delegationID string) (req *ProxyRequest, err error) {
-	var existingReq ProxyRequest
-
 	// Try existing one first
-	collection := s.db.C("x509_proxy_request")
-	if err = collection.Find(bson.M{"delegation_id": delegationID}).One(&existingReq); err == nil {
-		req = &existingReq
+	rows, err := s.db.Query("SELECT request, private_key FROM t_x509_requests WHERE delegation_id = $1", delegationID)
+	if err != nil {
+		return nil, err
+	}
+
+	if rows.Next() {
+		var pemReq, pemKey string
+		if err = rows.Scan(&pemReq, &pemKey); err != nil {
+			return nil, err
+		}
+		var req ProxyRequest
+		if err = req.Decode([]byte(pemReq), []byte(pemKey)); err != nil {
+			return nil, err
+
+		}
 		log.WithField("delegation_id", delegationID).Debug("Using existing proxy request")
-		return
-	} else if err != mgo.ErrNotFound {
-		return
+		return &req, nil
 	}
 
 	// Otherwise, generate new one and store
@@ -256,10 +229,15 @@ func (s *storeImpl) GetRequest(delegationID string) (req *ProxyRequest, err erro
 		DelegationID: delegationID,
 	}
 	if err = req.Init(2048, x509.SHA256WithRSA); err != nil {
-		return
+		return nil, err
 	}
 	log.WithField("delegation_id", delegationID).Debug("Generated new proxy request")
-	_, err = collection.Upsert(bson.M{"delegation_id": delegationID}, req)
-	return
-}
 
+	// Insert
+	_, err = s.db.Exec(
+		`INSERT INTO t_x509_requests
+			(delegation_id, request, private_key) VALUES
+			($1, $2, $3)`,
+		req.DelegationID, req.EncodeRequest(), req.EncodeKey())
+	return req, err
+}

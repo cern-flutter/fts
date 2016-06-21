@@ -18,7 +18,6 @@ package surl
 
 import (
 	"encoding/json"
-	"gopkg.in/mgo.v2/bson"
 	"net"
 	"net/url"
 )
@@ -75,26 +74,5 @@ func (s *SURL) UnmarshalJSON(data []byte) (err error) {
 		return
 	}
 	s.URL = *parsed
-	return
-}
-
-// GetBSON serializes the SURL to a simple string
-func (s SURL) GetBSON() (interface{}, error) {
-	return s.String(), nil
-}
-
-// SetBSON parses a simple string (defines as SURL in the type struct) to a SURL
-func (s *SURL) SetBSON(raw bson.Raw) (err error) {
-	var str string
-	if err = raw.Unmarshal(&str); err != nil {
-		return
-	}
-
-	parsed, err := url.Parse(str)
-	if err != nil {
-		return
-	}
-	s.URL = *parsed
-
 	return
 }

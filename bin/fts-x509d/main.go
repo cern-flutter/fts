@@ -35,10 +35,9 @@ var x509Cmd = &cobra.Command{
 		var err error
 
 		// Instantiate store
-		dbAddr := viper.Get("x509.db.addr").(string)
-		dbName := viper.Get("x509.db.name").(string)
+		dbAddr := viper.Get("x509.db").(string)
 		var x509rpc X509RPC
-		if x509rpc.store, err = x509.NewStore(dbAddr, dbName); err != nil {
+		if x509rpc.store, err = x509.NewStore(dbAddr); err != nil {
 			log.Fatal("Could not instantiate the service: ", err)
 		}
 		defer x509rpc.store.Close()
@@ -72,15 +71,13 @@ func main() {
 	// Flags
 	x509Cmd.Flags().String("Log", "", "Log file")
 	x509Cmd.Flags().String("Listen", "localhost:42001", "Bind to this address")
-	x509Cmd.Flags().String("Connect", "localhost:27017", "Database connection string")
-	x509Cmd.Flags().String("Database", "fts", "Database name")
+	x509Cmd.Flags().String("Database", "dbname=fts user=fts password=fts host=localhost", "Database connection string")
 	x509Cmd.Flags().Bool("Debug", true, "Enable debugging")
 
 	// Bind flags to viper
 	viper.BindPFlag("x509.log", x509Cmd.Flags().Lookup("Log"))
 	viper.BindPFlag("x509.listen", x509Cmd.Flags().Lookup("Listen"))
-	viper.BindPFlag("x509.db.addr", x509Cmd.Flags().Lookup("Connect"))
-	viper.BindPFlag("x509.db.name", x509Cmd.Flags().Lookup("Database"))
+	viper.BindPFlag("x509.db", x509Cmd.Flags().Lookup("Database"))
 	viper.BindPFlag("x509.debug", x509Cmd.Flags().Lookup("Debug"))
 
 	cobra.OnInitialize(func() {
