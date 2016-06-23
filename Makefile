@@ -13,7 +13,7 @@ $(OUTDIR):
 install: $(OUTDIR)
 	export GOBIN=`readlink -f $(OUTDIR)`; echo ./bin/* | xargs go install
 
-docker: docker-db docker-worker docker-sched docker-rest
+docker: docker-db docker-broker docker-worker docker-sched docker-rest
 
 docker-base:
 	docker build -t fts-base -f docker/base/Dockerfile .
@@ -29,6 +29,9 @@ docker-rest: docker-base install
 
 docker-db:
 	docker build -t fts-db -f docker/database/Dockerfile .
+
+docker-broker:
+	docker build -t fts-broker -f docker/broker/Dockerfile .
 
 ca: $(CADIR)/private/ca_key.pem
 

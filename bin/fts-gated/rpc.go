@@ -17,18 +17,17 @@
 package main
 
 import (
+	"encoding/json"
 	log "github.com/Sirupsen/logrus"
-	"github.com/streadway/amqp"
-	"gitlab.cern.ch/flutter/fts/bus/exchanges"
+	"gitlab.cern.ch/flutter/fts/config"
 	"gitlab.cern.ch/flutter/fts/types/tasks"
 	"gitlab.cern.ch/flutter/fts/version"
+	"gitlab.cern.ch/flutter/stomp"
 	"net/http"
-	"encoding/json"
 )
 
 type GatewayRPC struct {
-	amqpConn  *amqp.Connection
-	amqpChann *amqp.Channel
+	producer *stomp.Producer
 }
 
 type PingReply struct {
@@ -36,21 +35,20 @@ type PingReply struct {
 	Echo    string
 }
 
-func newRPC(amqpAddr string) (*GatewayRPC, error) {
+// newRPC creates a new RPC instance
+func newRPC(params stomp.ConnectionParameters) (*GatewayRPC, error) {
 	var err error
 	rpc := &GatewayRPC{}
 
-	if rpc.amqpConn, err = amqp.Dial(amqpAddr); err != nil {
+	if rpc.producer, err = stomp.NewProducer(params); err != nil {
 		return nil, err
 	}
-	if rpc.amqpChann, err = rpc.amqpConn.Channel(); err != nil {
-		return nil, err
-	}
-	if err = exchanges.Transition.Declare(rpc.amqpChann); err != nil {
-		return nil, err
-	}
-
 	return rpc, nil
+}
+
+// close closes remote connections
+func (c *GatewayRPC) close() {
+	c.producer.Close()
 }
 
 // Ping method
@@ -74,21 +72,18 @@ func (c *GatewayRPC) Submit(r *http.Request, set *tasks.Batch, nBatches *int) er
 	l.Info("Accepted submission with ", *nBatches, " batches")
 
 	for _, batch := range normalized {
+		batch.State = tasks.Submitted
 		data, err := json.Marshal(batch)
 		if err != nil {
 			return err
 		}
-		err = c.amqpChann.Publish(
-			exchanges.Transition.Name,
-			tasks.Submitted,
-			false, // mandatory
-			false, // immediate
-			 amqp.Publishing{
-				 ContentType: "application/json",
-				 DeliveryMode: amqp.Persistent,
-				 Priority: 0,
-				 Body: data,
-			 },
+		err = c.producer.Send(
+			config.TransferTopic,
+			string(data),
+			stomp.SendParams{
+				Persistent:  true,
+				ContentType: "application/json",
+			},
 		)
 		if err != nil {
 			return err

@@ -18,87 +18,96 @@ package scheduler
 
 import (
 	"encoding/json"
+	"fmt"
 	log "github.com/Sirupsen/logrus"
-	"github.com/streadway/amqp"
-	"gitlab.cern.ch/flutter/fts/bus/exchanges"
-	"gitlab.cern.ch/flutter/fts/bus/queues"
+	"github.com/satori/go.uuid"
+	"gitlab.cern.ch/flutter/fts/config"
 	"gitlab.cern.ch/flutter/fts/types/tasks"
+	"gitlab.cern.ch/flutter/stomp"
 )
 
 type (
 	// Scheduler wraps the scheduler status
 	Scheduler struct {
-		connection          *amqp.Connection
-		subscriptionChannel *amqp.Channel
-		publishChannel      *amqp.Channel
+		producer *stomp.Producer
+		consumer *stomp.Consumer
 	}
 )
 
 // New creates a new scheduler
-func New(amqpAddress string) (*Scheduler, error) {
+func New(params stomp.ConnectionParameters) (*Scheduler, error) {
 	var err error
 	sched := &Scheduler{}
 
-	if sched.connection, err = amqp.Dial(amqpAddress); err != nil {
+	if sched.producer, err = stomp.NewProducer(params); err != nil {
 		return nil, err
 	}
-	if sched.subscriptionChannel, err = sched.connection.Channel(); err != nil {
-		return nil, err
-	}
-	if sched.publishChannel, err = sched.connection.Channel(); err != nil {
-		return nil, err
-	}
-	if err = exchanges.Transition.Declare(sched.subscriptionChannel); err != nil {
-		return nil, err
-	}
-	if err = queues.Submissions.Declare(sched.subscriptionChannel); err != nil {
+	if sched.consumer, err = stomp.NewConsumer(params); err != nil {
 		return nil, err
 	}
 	return sched, nil
 }
 
+// Close finishes the scheduler
+func (s *Scheduler) Close() {
+	s.consumer.Close()
+	s.producer.Close()
+}
+
 // Run the scheduler
 func (s *Scheduler) Run() error {
-	var err error
-	var taskChannel <-chan amqp.Delivery
-
-	if taskChannel, err = s.subscriptionChannel.Consume(
-		queues.Submissions.Name,
-		"",    // consumer id
-		false, // auto-ack
-		true,  // exclusive
-		false, // no-local
-		false, // no-wait
-		nil,   // args
-	); err != nil {
+	consumerId := fmt.Sprint("fts-scheduler-", uuid.NewV4().String())
+	taskChannel, errorChannel, err := s.consumer.Subscribe(
+		config.SchedulerQueue,
+		consumerId,
+		stomp.AckIndividual,
+	)
+	if err != nil {
 		return err
 	}
 
 	for {
 		select {
-		case msg := <-taskChannel:
+		case msg, ok := <-taskChannel:
+			if !ok {
+				return nil
+			}
 			batch := tasks.Batch{}
 			if err = json.Unmarshal(msg.Body, &batch); err != nil {
-				msg.Reject(false)
-				log.Error("Could not parse batch: ", err)
+				msg.Nack()
+				log.WithError(err).Error("Could not parse batch")
 			}
-			msg.Ack(false)
-			// This is an identity dummy scheduler, so forward to workers
-			log.Info("Forwarding batch ", batch.GetID())
-			s.publishChannel.Publish(
-				exchanges.Transition.Name,
-				tasks.Ready,
-				false, // mandatory
-				false, // immediate
-				amqp.Publishing{
-					ContentType:  "application/json",
-					DeliveryMode: amqp.Persistent,
-					Priority:     0,
-					Body:         msg.Body,
-				},
-			)
-		case e := <-s.subscriptionChannel.NotifyClose(make(chan *amqp.Error)):
-			return e
+			msg.Ack()
+
+			// We are only interested on SUBMITTED batches
+			if batch.State == tasks.Submitted {
+				// This is an identity dummy scheduler, so forward to workers
+				log.WithField("batch", batch.GetID()).Info("Forwarding batch")
+				batch.State = tasks.Ready
+				body, err := json.Marshal(batch)
+				if err != nil {
+					return err
+				}
+
+				err = s.producer.Send(
+					config.TransferTopic,
+					string(body),
+					stomp.SendParams{
+						Persistent:  true,
+						ContentType: "application/json",
+					},
+				)
+				if err != nil {
+					return err
+				}
+			} else {
+				log.WithField("batch", batch.GetID()).Debug("Ignoring batch with state ", batch.State)
+			}
+		case error, ok := <-errorChannel:
+			if !ok {
+				return nil
+			}
+			log.WithError(error).Warn("Got an error from the subcription channel")
 		}
 	}
 }
@@ -107,7 +116,10 @@ func (s *Scheduler) Run() error {
 func (s *Scheduler) Go() <-chan error {
 	c := make(chan error)
 	go func() {
-		c <- s.Run()
+		if err := s.Run(); err != nil {
+			c <- err
+		}
+		close(c)
 	}()
 	return c
 }

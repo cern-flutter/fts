@@ -17,14 +17,11 @@
 package worker
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
-	"github.com/streadway/amqp"
-	"gitlab.cern.ch/flutter/fts/bus/exchanges"
-	"gitlab.cern.ch/flutter/fts/types/tasks"
+	"gitlab.cern.ch/flutter/fts/config"
 	"gitlab.cern.ch/flutter/go-dirq"
+	"gitlab.cern.ch/flutter/stomp"
 	"path"
 	"time"
 )
@@ -33,27 +30,23 @@ type (
 	// Forwarder subsystem sends local messages to the global bus
 	Forwarder struct {
 		Context          *Context
-		channel          *amqp.Channel
+		producer         *stomp.Producer
 		start, end, perf *dirq.Dirq
 	}
 )
 
 // Run executes the Forwarder subroutine
 func (f *Forwarder) Run() error {
-	if err := f.subscribeLocalQueues(); err != nil {
-		return err
-	}
-	if err := f.openChannel(); err != nil {
-		return err
-	}
-	if err := exchanges.Transition.Declare(f.channel); err != nil {
-		return err
-	}
-	if err := exchanges.Performance.Declare(f.channel); err != nil {
-		return err
-	}
-	log.Info("Forwarder started")
+	var err error
 
+	if err = f.subscribeLocalQueues(); err != nil {
+		return err
+	}
+	if f.producer, err = stomp.NewProducer(f.Context.params.StompParams); err != nil {
+		return err
+	}
+
+	log.Info("Forwarder started")
 	for {
 		if err := f.forwardStart(); err != nil {
 			return err
@@ -92,32 +85,18 @@ func (f *Forwarder) subscribeLocalQueues() error {
 	return nil
 }
 
-// openChannel opens a new channel for the forwarder
-func (f *Forwarder) openChannel() error {
-	var err error
-	f.channel, err = f.Context.amqpConnection.Channel()
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 // forwardStart consumes local start messages and forward them to amqp.
 func (f *Forwarder) forwardStart() error {
 	for start := range f.start.Consume() {
 		if start.Error != nil {
 			return start.Error
 		}
-		if err := f.channel.Publish(
-			exchanges.Transition.Name,
-			tasks.Active,
-			false, // mandatory
-			false, // immediate
-			amqp.Publishing{
-				ContentType:  "application/json",
-				DeliveryMode: amqp.Persistent,
-				Timestamp:    time.Now(),
-				Body:         start.Message,
+		if err := f.producer.Send(
+			config.TransferTopic,
+			string(start.Message),
+			stomp.SendParams{
+				Persistent:  true,
+				ContentType: "application/json",
 			},
 		); err != nil {
 			return err
@@ -133,22 +112,12 @@ func (f *Forwarder) forwardEnd() error {
 		if end.Error != nil {
 			return end.Error
 		}
-		transfer := tasks.Transfer{}
-		if err := json.Unmarshal(end.Message, &transfer); err != nil {
-			return err
-		} else if transfer.Status == nil {
-			return errors.New("Status is nil")
-		}
-		if err := f.channel.Publish(
-			exchanges.Transition.Name,
-			transfer.Status.State,
-			false, // mandatory
-			false, // immediate
-			amqp.Publishing{
-				ContentType:  "application/json",
-				DeliveryMode: amqp.Persistent,
-				Timestamp:    time.Now(),
-				Body:         end.Message,
+		if err := f.producer.Send(
+			config.TransferTopic,
+			string(end.Message),
+			stomp.SendParams{
+				Persistent:  true,
+				ContentType: "application/json",
 			},
 		); err != nil {
 			return err
@@ -164,16 +133,12 @@ func (f *Forwarder) forwardPerf() error {
 		if perf.Error != nil {
 			return perf.Error
 		}
-		if err := f.channel.Publish(
-			exchanges.Performance.Name,
-			"perf",
-			false, // mandatory
-			false, // immediate
-			amqp.Publishing{
-				ContentType:  "application/json",
-				DeliveryMode: amqp.Persistent,
-				Timestamp:    time.Now(),
-				Body:         perf.Message,
+		if err := f.producer.Send(
+			config.PerformanceTopic,
+			string(perf.Message),
+			stomp.SendParams{
+				Persistent:  false,
+				ContentType: "application/json",
 			},
 		); err != nil {
 			return err

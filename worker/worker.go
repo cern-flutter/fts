@@ -18,15 +18,15 @@ package worker
 
 import (
 	log "github.com/Sirupsen/logrus"
-	"github.com/streadway/amqp"
 	"gitlab.cern.ch/flutter/http-jsonrpc"
+	"gitlab.cern.ch/flutter/stomp"
 	"net/rpc"
 )
 
 type (
 	// Params defines the configuration for the worker
 	Params struct {
-		AmqpAddress     string
+		StompParams     stomp.ConnectionParameters
 		URLCopyBin      string
 		TransferLogPath string
 		DirQPath        string
@@ -35,9 +35,8 @@ type (
 
 	// Context is used by each subsystem
 	Context struct {
-		params         Params
-		amqpConnection *amqp.Connection
-		x509d          *rpc.Client
+		params Params
+		x509d  *rpc.Client
 	}
 
 	// Reply coming from the credential service
@@ -64,26 +63,11 @@ func New(params Params) (context *Context, err error) {
 		return
 	}
 
-	if context.amqpConnection, err = amqp.Dial(params.AmqpAddress); err != nil {
-		context.x509d.Close()
-		return
-	}
-
-	// Called if the connection is lost
-	go func(c chan *amqp.Error) {
-		for e := range c {
-			log.Panic("Lost connection with AMQP: ", e)
-		}
-	}(context.amqpConnection.NotifyClose(make(chan *amqp.Error)))
-
 	log.Debugf("Connected to X509 %s (%s)", params.X509Address, x509Reply.Version)
-	log.Debugf("Connected to AMQP %s (%d.%d)", params.AmqpAddress, context.amqpConnection.Major, context.amqpConnection.Minor)
-
 	return
 }
 
 // Close finalizes all the connections and processes
 func (c *Context) Close() {
-	c.amqpConnection.Close()
 	c.x509d.Close()
 }

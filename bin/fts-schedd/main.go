@@ -20,19 +20,45 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"gitlab.cern.ch/flutter/fts/config"
 	"gitlab.cern.ch/flutter/fts/scheduler"
 	"gitlab.cern.ch/flutter/fts/util"
+	"gitlab.cern.ch/flutter/stomp"
+	"time"
 )
 
 var scheddCmd = &cobra.Command{
 	Use:   "fts-schedd",
 	Short: "FTS Scheduler",
 	Run: func(cmd *cobra.Command, args []string) {
-		amqpAddress := viper.Get("amqp").(string)
-		sched, err := scheduler.New(amqpAddress)
+		reconnectWait := viper.Get("stomp.reconnect.wait").(int)
+		reconnectMaxRetries := viper.Get("stomp.reconnect.retry").(int)
+		reconnectRetries := 0
+
+		sched, err := scheduler.New(stomp.ConnectionParameters{
+			ClientId: "fts-schedd-" + util.Hostname(),
+			Address:  viper.Get("stomp").(string),
+			Login:    viper.Get("stomp.login").(string),
+			Passcode: viper.Get("stomp.passcode").(string),
+			ConnectionLost: func(b *stomp.Broker) {
+				l := log.WithField("broker", b.RemoteAddr())
+				if reconnectRetries >= reconnectMaxRetries {
+					l.Panicf("Could not reconnect to the broker after %d attemps", reconnectRetries)
+				}
+				l.Warn("Lost connection with broker")
+				if err := b.Reconnect(); err != nil {
+					l.WithError(err).Errorf("Failed to reconnect, wait %d seconds", reconnectWait)
+					time.Sleep(time.Duration(reconnectWait) * time.Second)
+					reconnectRetries++
+				} else {
+					reconnectRetries = 0
+				}
+			},
+		})
 		if err != nil {
 			log.Fatal(err)
 		}
+		defer sched.Close()
 		scheddErrors := sched.Go()
 		log.Info("All subservices started")
 		for {
@@ -49,13 +75,12 @@ func main() {
 	// Config file
 	configFile := scheddCmd.Flags().String("Config", "", "Use configuration from this file")
 
-	// Flags
-	scheddCmd.Flags().String("Amqp", "amqp://guest:guest@localhost:5672/", "AMQP connect string")
+	// Stomp flags
+	config.BindStompFlags(scheddCmd)
+
+	// Specific flags
 	scheddCmd.Flags().String("Log", "", "Log file")
 	scheddCmd.Flags().Bool("Debug", true, "Enable debugging")
-
-	// Bind flags to viper
-	viper.BindPFlag("amqp", scheddCmd.Flags().Lookup("Amqp"))
 	viper.BindPFlag("schedd.log", scheddCmd.Flags().Lookup("Log"))
 	viper.BindPFlag("schedd.debug", scheddCmd.Flags().Lookup("Debug"))
 

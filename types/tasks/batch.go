@@ -29,6 +29,7 @@ type (
 	// Batch contains a set of transfer that form a logical unit of work
 	Batch struct {
 		Type         BatchType   `json:"type" bson:"type"`
+		State        string      `json:"state"`
 		Transfers    []*Transfer `json:"transfers" bson:"transfers"`
 		DelegationID string      `json:"delegation_id" bson:"delegation_id"`
 		Vo           string      `json:"vo" bson:"vo"`
@@ -50,7 +51,7 @@ var (
 	// ErrEmptyTransferSet is returned when the batch is empty (has no transfers)
 	ErrEmptyTransferSet = errors.New("Empty batch")
 	// ErrCannotMerge is returned when the two batches can not be merged
-	ErrCannotMerge      = errors.New("Batches can not be merged")
+	ErrCannotMerge = errors.New("Batches can not be merged")
 )
 
 // Validate checks if a batch is properly defined

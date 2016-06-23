@@ -4,24 +4,29 @@ database:
   env_file:
     dev.env
   ports:
-    - "15432:5432"
+    - "5432:5432"
 
-rabbitmq:
-  image: rabbitmq:3-management
-  container_name: rabbitmq
+broker:
+  image: fts-broker
+  container_name: fts-broker
+  env_file:
+    dev.env
+  ports:
+    - "8161:8161"
+    - "61613:61613"
 
 worker:
   image: fts-worker
   links:
     - database
-    - rabbitmq
+    - broker
   env_file:
     dev.env
 
 sched:
   image: fts-sched
   links:
-    - rabbitmq
+    - broker
   env_file:
     dev.env
 
@@ -29,7 +34,7 @@ rest:
   image: fts-rest
   links:
     - database
-    - rabbitmq
+    - broker
   env_file:
     dev.env
   ports:

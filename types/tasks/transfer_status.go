@@ -37,14 +37,15 @@ const (
 // Optionally, if staging is required
 //	Staging -> Started -> [Submitted -> Ready -> Active] -> Finished/Failed
 const (
-	Staging   = "STAGING"
-	Started   = "STARTED"
-	Submitted = "SUBMITTED"
-	Ready     = "READY"
-	Active    = "ACTIVE"
-	Finished  = "FINISHED"
-	Failed    = "FAILED"
-	Canceled  = "CANCELED"
+	Staging       = "STAGING"
+	Started       = "STARTED"
+	Submitted     = "SUBMITTED"
+	Ready         = "READY"
+	Active        = "ACTIVE"
+	Finished      = "FINISHED"
+	Failed        = "FAILED"
+	Canceled      = "CANCELED"
+	FinishedDirty = "FINISHEDDIRTY"
 )
 
 type (

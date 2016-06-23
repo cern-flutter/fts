@@ -18,50 +18,56 @@ package worker
 
 import (
 	"encoding/json"
-	"fmt"
 	log "github.com/Sirupsen/logrus"
-	"github.com/streadway/amqp"
-	"gitlab.cern.ch/flutter/fts/bus/exchanges"
-	"gitlab.cern.ch/flutter/fts/bus/queues"
+	"github.com/satori/go.uuid"
+	"gitlab.cern.ch/flutter/fts/config"
 	"gitlab.cern.ch/flutter/fts/types/tasks"
+	"gitlab.cern.ch/flutter/stomp"
 )
 
 type (
 	// Runner subsystem gets batches and runs the corresponding url-copy
 	Runner struct {
-		Context *Context
-		channel *amqp.Channel
+		Context  *Context
+		consumer *stomp.Consumer
 	}
 )
 
 // Run executes the Runner subroutine
 func (r *Runner) Run() error {
-	if err := r.openChannel(); err != nil {
+	var err error
+
+	if r.consumer, err = stomp.NewConsumer(r.Context.params.StompParams); err != nil {
 		return err
 	}
-	if err := r.subscribe(); err != nil {
+
+	var taskChannel <-chan stomp.Message
+	var errorChannel <-chan error
+	if taskChannel, errorChannel, err = r.consumer.Subscribe(
+		config.WorkerQueue,
+		"fts-worker-"+uuid.NewV4().String(),
+		stomp.AckIndividual,
+	); err != nil {
 		return err
 	}
 
 	log.Info("Runner started")
-
-	taskChannel, err := r.consume()
-	if err != nil {
-		return err
-	}
-
 	for {
 		select {
-		case m := <-taskChannel:
-			m.Ack(false)
+		case m, ok := <-taskChannel:
+			if !ok {
+				return nil
+			}
+			m.Ack()
+
 			go func() {
 				var batch tasks.Batch
 				if err := json.Unmarshal(m.Body, &batch); err != nil {
 					log.Error("Malformed task: ", err)
 				} else if err := batch.Validate(); err != nil {
 					log.Error("Invalid task: ", err)
-				} else {
-					log.Info("Received batch ", batch.GetID())
+				} else if batch.State == tasks.Ready {
+					log.WithField("batch", batch.GetID()).Info("Received batch")
 					if pid, err := RunTransfer(r.Context, &batch); err != nil {
 						log.Error("Failed to run the batch: ", err)
 						// TODO: Notify failure
@@ -69,10 +75,15 @@ func (r *Runner) Run() error {
 						log.Info("Spawn with pid ", pid)
 						// TODO: Store PID
 					}
+				} else {
+					log.WithField("batch", batch.GetID()).Info("Ignoring batch in state ", batch.State)
 				}
 			}()
-		case e := <-r.channel.NotifyClose(make(chan *amqp.Error)):
-			return e
+		case error, ok := <-errorChannel:
+			if !ok {
+				return nil
+			}
+			log.WithError(error).Warn("Got an error from the subcription channel")
 		}
 	}
 }
@@ -81,53 +92,10 @@ func (r *Runner) Run() error {
 func (r *Runner) Go() <-chan error {
 	c := make(chan error)
 	go func() {
-		c <- r.Run()
+		if err := r.Run(); err != nil {
+			c <- err
+		}
+		close(c)
 	}()
 	return c
-}
-
-// openChannel opens a new channel for the runner
-func (r *Runner) openChannel() error {
-	var err error
-	r.channel, err = r.Context.amqpConnection.Channel()
-	if err != nil {
-		return err
-	}
-	if err = r.channel.Qos(1, 0, false); err != nil {
-		return fmt.Errorf("Could not set the QoS: %s", err.Error())
-	}
-	return nil
-}
-
-// subscribe prepares the subscription
-func (r *Runner) subscribe() error {
-	var err error
-
-	if err = exchanges.Transition.Declare(r.channel); err != nil {
-		return err
-	}
-
-	if err = queues.Worker.Declare(r.channel); err != nil {
-		return err
-	}
-	return nil
-}
-
-// consume starts consuming from the worker task queue
-func (r *Runner) consume() (<-chan amqp.Delivery, error) {
-	var err error
-	var msgs <-chan amqp.Delivery
-
-	if msgs, err = r.channel.Consume(
-		queues.Worker.Name,
-		"",    // consumer id
-		false, // auto-ack
-		false, // exclusive
-		false, // no-local
-		false, // no-wait
-		nil,   // args
-	); err != nil {
-		return nil, err
-	}
-	return msgs, nil
 }

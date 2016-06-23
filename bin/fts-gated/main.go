@@ -23,8 +23,11 @@ import (
 	json "github.com/gorilla/rpc/v2/json2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"gitlab.cern.ch/flutter/fts/config"
 	"gitlab.cern.ch/flutter/fts/util"
+	"gitlab.cern.ch/flutter/stomp"
 	"net/http"
+	"time"
 )
 
 var gatedCmd = &cobra.Command{
@@ -34,11 +37,34 @@ var gatedCmd = &cobra.Command{
 		var err error
 
 		// Instantiate store
-		amqpAddr := viper.Get("amqp").(string)
-		gateRPC, err := newRPC(amqpAddr)
+		reconnectWait := viper.Get("stomp.reconnect.wait").(int)
+		reconnectMaxRetries := viper.Get("stomp.reconnect.retry").(int)
+		reconnectRetries := 0
+
+		gateRPC, err := newRPC(stomp.ConnectionParameters{
+			ClientId: "fts-gated-" + util.Hostname(),
+			Address:  viper.Get("stomp").(string),
+			Login:    viper.Get("stomp.login").(string),
+			Passcode: viper.Get("stomp.passcode").(string),
+			ConnectionLost: func(b *stomp.Broker) {
+				l := log.WithField("broker", b.RemoteAddr())
+				if reconnectRetries >= reconnectMaxRetries {
+					l.Panicf("Could not reconnect to the broker after %d attemps", reconnectRetries)
+				}
+				l.Warn("Lost connection with broker")
+				if err := b.Reconnect(); err != nil {
+					l.WithError(err).Errorf("Failed to reconnect, wait %d seconds", reconnectWait)
+					time.Sleep(time.Duration(reconnectWait) * time.Second)
+					reconnectRetries++
+				} else {
+					reconnectRetries = 0
+				}
+			},
+		})
 		if err != nil {
 			log.Fatal(err)
 		}
+		defer gateRPC.close()
 
 		// Create jsonrpc server
 		server := rpc.NewServer()
@@ -66,17 +92,17 @@ func main() {
 	// Config file
 	configFile := gatedCmd.Flags().String("Config", "", "Use configuration from this file")
 
-	// Flags
-	gatedCmd.Flags().String("Log", "", "Log file")
-	gatedCmd.Flags().String("Listen", "localhost:42010", "Bind to this address")
-	gatedCmd.Flags().String("Amqp", "amqp://guest:guest@localhost:5672/", "AMQP connect string")
-	gatedCmd.Flags().Bool("Debug", true, "Enable debugging")
+	// Common configuration
+	config.BindStompFlags(gatedCmd)
 
-	// Bind flags to viper
-	viper.BindPFlag("amqp", gatedCmd.Flags().Lookup("Amqp"))
+	// Specific configuration
+	gatedCmd.Flags().String("Log", "", "Log file")
+	gatedCmd.Flags().Bool("Debug", true, "Enable debugging")
+	gatedCmd.Flags().String("Listen", "localhost:42010", "Bind to this address")
+
 	viper.BindPFlag("gated.log", gatedCmd.Flags().Lookup("Log"))
-	viper.BindPFlag("gated.listen", gatedCmd.Flags().Lookup("Listen"))
 	viper.BindPFlag("gated.debug", gatedCmd.Flags().Lookup("Debug"))
+	viper.BindPFlag("gated.listen", gatedCmd.Flags().Lookup("Listen"))
 
 	cobra.OnInitialize(func() {
 		if *configFile != "" {

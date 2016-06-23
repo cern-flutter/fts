@@ -20,8 +20,11 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"gitlab.cern.ch/flutter/fts/config"
 	"gitlab.cern.ch/flutter/fts/util"
 	"gitlab.cern.ch/flutter/fts/worker"
+	"gitlab.cern.ch/flutter/stomp"
+	"time"
 )
 
 var workerCmd = &cobra.Command{
@@ -31,13 +34,35 @@ var workerCmd = &cobra.Command{
 		var err error
 		var context *worker.Context
 
+		reconnectWait := viper.Get("stomp.reconnect.wait").(int)
+		reconnectMaxRetries := viper.Get("stomp.reconnect.retry").(int)
+		reconnectRetries := 0
+
 		params := worker.Params{
-			AmqpAddress:     viper.Get("amqp").(string),
 			X509Address:     viper.Get("worker.x509d").(string),
 			URLCopyBin:      viper.Get("worker.urlcopy").(string),
 			TransferLogPath: viper.Get("worker.transfers.logs").(string),
 			DirQPath:        viper.Get("worker.dirq").(string),
-		}
+			StompParams: stomp.ConnectionParameters{
+				ClientId: "fts-workerd-" + util.Hostname(),
+				Address:  viper.Get("stomp").(string),
+				Login:    viper.Get("stomp.login").(string),
+				Passcode: viper.Get("stomp.passcode").(string),
+				ConnectionLost: func(b *stomp.Broker) {
+					l := log.WithField("broker", b.RemoteAddr())
+					if reconnectRetries >= reconnectMaxRetries {
+						l.Panicf("Could not reconnect to the broker after %d attemps", reconnectRetries)
+					}
+					l.Warn("Lost connection with broker")
+					if err := b.Reconnect(); err != nil {
+						l.WithError(err).Errorf("Failed to reconnect, wait %d seconds", reconnectWait)
+						time.Sleep(time.Duration(reconnectWait) * time.Second)
+						reconnectRetries++
+					} else {
+						reconnectRetries = 0
+					}
+				},
+			}}
 
 		if context, err = worker.New(params); err != nil {
 			log.Fatal("Could not create a worker context: ", err)
@@ -67,17 +92,17 @@ func main() {
 	// Config file
 	configFile := workerCmd.Flags().String("Config", "", "Use configuration from this file")
 
-	// Flags
+	// Stomp flags
+	config.BindStompFlags(workerCmd)
+
+	// Specific flags
 	workerCmd.Flags().String("Log", "", "Log file")
-	workerCmd.Flags().String("Amqp", "amqp://guest:guest@localhost:5672/", "AMQP connect string")
 	workerCmd.Flags().String("X509d", "http://localhost:42001/rpc", "X509 store rpc address")
 	workerCmd.Flags().String("DirQ", "/var/lib/fts", "Base directory for dirq messages")
 	workerCmd.Flags().String("UrlCopy", "url-copy", "url-copy command")
 	workerCmd.Flags().String("TransfersLogDir", "/var/log/fts/transfers", "Transfer logs base dir")
 	workerCmd.Flags().Bool("Debug", true, "Enable debugging")
 
-	// Bind flags to viper
-	viper.BindPFlag("amqp", workerCmd.Flags().Lookup("Amqp"))
 	viper.BindPFlag("worker.log", workerCmd.Flags().Lookup("Log"))
 	viper.BindPFlag("worker.x509d", workerCmd.Flags().Lookup("X509d"))
 	viper.BindPFlag("worker.dirq", workerCmd.Flags().Lookup("DirQ"))
