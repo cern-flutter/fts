@@ -23,3 +23,8 @@ type Interval struct {
 	Start time.Time
 	End   time.Time
 }
+
+// Seconds return the number of seconds elapsed between start and end
+func (i *Interval) Seconds() float64 {
+	return i.End.Sub(i.Start).Seconds()
+}

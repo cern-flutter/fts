@@ -22,7 +22,6 @@ import (
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"gitlab.cern.ch/dmc/go-gfal2"
-	"gitlab.cern.ch/flutter/fts/types/interval"
 	"gitlab.cern.ch/flutter/fts/types/perf"
 	"gitlab.cern.ch/flutter/fts/types/tasks"
 	"gitlab.cern.ch/flutter/fts/version"
@@ -57,15 +56,20 @@ func NewUrlCopy(taskfile string) *UrlCopy {
 
 	raw, err := ioutil.ReadFile(taskfile)
 	if err != nil {
-		log.Panicf("Could not open the task file: %s", err.Error())
+		log.Panic("Could not open the task file: ", err.Error())
 	}
 	err = json.Unmarshal(raw, &copy.transferSet)
 	if err != nil {
-		log.Panicf("Failed to parse the task file: %s", err.Error())
+		log.Panic("Failed to parse the task file: ", err.Error())
 	}
 
 	if !*keepTaskFile {
 		os.Remove(taskfile)
+	}
+
+	// All transfers, from now on, will have a status
+	for index := range copy.transferSet.Transfers {
+		copy.transferSet.Transfers[index].Status = &tasks.TransferStatus{}
 	}
 
 	copy.context, err = gfal2.NewContext()
@@ -171,6 +175,8 @@ func (copy *UrlCopy) NotifyPerformanceMarker(marker gfal2.Marker) {
 	if err := ReportPerformance(perf); err != nil {
 		log.Error(err)
 	}
+	copy.transfer.Status.Stats.TransferredBytes = int64(marker.BytesTransferred)
+	copy.transfer.Status.Stats.Throughput = float32(marker.AvgThroughput)
 }
 
 // runTransfer prepares the context and copy handler, and run the transfer. It sends the start message,
@@ -182,9 +188,10 @@ func (copy *UrlCopy) runTransfer(transfer *tasks.Transfer) {
 		State:   tasks.Active,
 		Error:   nil,
 		Message: "Starting transfer",
-		Stats:   nil,
+		Stats:   &tasks.TransferRunStatistics{},
 		LogFile: nil,
 	}
+	transfer.Status.Stats.Intervals.Total.Start = time.Now()
 
 	logFile, err := generateLogPath(transfer)
 	if err != nil {
@@ -199,14 +206,6 @@ func (copy *UrlCopy) runTransfer(transfer *tasks.Transfer) {
 	err = ReportStart(transfer)
 	if err != nil {
 		log.Errorf("Failed to send the start message: %s", err.Error())
-	}
-
-	transfer.Status.Stats = &tasks.TransferRunStatistics{
-		Intervals: tasks.TransferIntervals{
-			Total: interval.Interval{
-				Start: time.Now(),
-			},
-		},
 	}
 
 	copy.setupGfal2ForTransfer(transfer)
@@ -316,6 +315,16 @@ func (copy *UrlCopy) runTransfer(transfer *tasks.Transfer) {
 			Recoverable: IsRecoverable(tasks.ScopeTransfer, gerr.Code()),
 		}
 		return
+	} else {
+		// Adjust size and throughput if the protocol didn't give us perf.markers
+		if transfer.Status.Stats.TransferredBytes == 0 {
+			transfer.Status.Stats.TransferredBytes = srcStat.Size()
+		}
+		if transfer.Status.Stats.Throughput == 0 {
+			transfer.Status.Stats.Throughput = float32(
+				float64(srcStat.Size()) / (transfer.Status.Stats.Intervals.Total.Seconds()),
+			)
+		}
 	}
 	return
 }
@@ -401,15 +410,11 @@ func (copy *UrlCopy) Panic(format string, args ...interface{}) {
 	copy.mutex.Lock()
 	defer copy.mutex.Unlock()
 	for _, transfer := range copy.transferSet.Transfers {
-		transfer.Status = &tasks.TransferStatus{
-			Error: &tasks.TransferError{
-				Scope:       tasks.ScopeAgent,
-				Code:        syscall.EINTR,
-				Description: message,
-				Recoverable: false,
-			},
-			Stats:   nil,
-			LogFile: nil,
+		transfer.Status.Error = &tasks.TransferError{
+			Scope:       tasks.ScopeAgent,
+			Code:        syscall.EINTR,
+			Description: message,
+			Recoverable: false,
 		}
 		err := ReportTerminal(transfer)
 		if err != nil {
