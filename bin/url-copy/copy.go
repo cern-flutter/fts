@@ -41,8 +41,10 @@ type UrlCopy struct {
 	canceled       bool
 	multihopFailed bool
 
-	mutex       sync.Mutex
-	transferSet tasks.Batch
+	mutex         sync.Mutex
+	batch         tasks.Batch
+	transferIndex int
+	terminalSent  bool
 
 	// Transfer being run
 	transfer *tasks.Transfer
@@ -58,7 +60,7 @@ func NewUrlCopy(taskfile string) *UrlCopy {
 	if err != nil {
 		log.Panic("Could not open the task file: ", err.Error())
 	}
-	err = json.Unmarshal(raw, &copy.transferSet)
+	err = json.Unmarshal(raw, &copy.batch)
 	if err != nil {
 		log.Panic("Failed to parse the task file: ", err.Error())
 	}
@@ -68,38 +70,29 @@ func NewUrlCopy(taskfile string) *UrlCopy {
 	}
 
 	// All transfers, from now on, will have a status
-	for index := range copy.transferSet.Transfers {
-		copy.transferSet.Transfers[index].Status = &tasks.TransferStatus{}
+	for index := range copy.batch.Transfers {
+		copy.batch.Transfers[index].Status = &tasks.TransferStatus{}
 	}
 
 	copy.context, err = gfal2.NewContext()
 	if err != nil {
-		copy.Panic("Could not instantiate the gfal2 context: %s", err.Error())
+		copy.Panicf("Could not instantiate the gfal2 context: %s", err.Error())
 	}
 	return &copy
 }
 
-// getFront returns the first transfer pending on the queue.
-// It does *not* remove it.
-func (copy *UrlCopy) getFront() *tasks.Transfer {
+// next returns the next transfer in the list, nil on end
+func (copy *UrlCopy) next() *tasks.Transfer {
 	copy.mutex.Lock()
 	defer copy.mutex.Unlock()
-	if len(copy.transferSet.Transfers) == 0 {
+
+	if copy.transferIndex < len(copy.batch.Transfers) {
+		transfer := copy.batch.Transfers[copy.transferIndex]
+		copy.transferIndex++
+		return transfer
+	} else {
 		return nil
 	}
-	return copy.transferSet.Transfers[0]
-}
-
-// popFront removes the first transfer from the queue.
-// It returns true if it was removed, false if the queue was already empty.
-func (copy *UrlCopy) popFront() bool {
-	copy.mutex.Lock()
-	defer copy.mutex.Unlock()
-	if len(copy.transferSet.Transfers) > 0 {
-		copy.transferSet.Transfers = copy.transferSet.Transfers[1:]
-		return true
-	}
-	return false
 }
 
 // setupGfal2ForTransfer prepares the gfal2 context for this particular transfer.
@@ -108,8 +101,8 @@ func (copy *UrlCopy) setupGfal2ForTransfer(transfer *tasks.Transfer) {
 	copy.context.SetOptBoolean("GRIDFTP PLUGIN", "ENABLE_UDT", transfer.Parameters.EnableUdt)
 	copy.context.SetOptBoolean("GRIDFTP PLUGIN", "IPV6", transfer.Parameters.EnableIpv6)
 	copy.context.SetUserAgent("url_copy", version.Version)
-	copy.context.SetOptString("X509", "CERT", fmt.Sprintf("/tmp/proxy_%s.pem", copy.transferSet.DelegationID))
-	copy.context.SetOptString("X509", "KEY", fmt.Sprintf("/tmp/proxy_%s.pem", copy.transferSet.DelegationID))
+	copy.context.SetOptString("X509", "CERT", fmt.Sprintf("/tmp/proxy_%s.pem", copy.batch.DelegationID))
+	copy.context.SetOptString("X509", "KEY", fmt.Sprintf("/tmp/proxy_%s.pem", copy.batch.DelegationID))
 
 	switch transfer.Parameters.ChecksumMode {
 	case tasks.ChecksumRelaxed:
@@ -172,7 +165,7 @@ func (copy *UrlCopy) NotifyPerformanceMarker(marker gfal2.Marker) {
 		Throughput:         marker.AvgThroughput,
 		TransferredBytes:   marker.BytesTransferred,
 	}
-	if err := ReportPerformance(perf); err != nil {
+	if err := copy.reportPerformance(perf); err != nil {
 		log.Error(err)
 	}
 	copy.transfer.Status.Stats.TransferredBytes = int64(marker.BytesTransferred)
@@ -195,7 +188,7 @@ func (copy *UrlCopy) runTransfer(transfer *tasks.Transfer) {
 
 	logFile, err := generateLogPath(transfer)
 	if err != nil {
-		copy.Panic("Could not create the log file: %s", err.Error())
+		copy.Panicf("Could not create the log file: %s", err.Error())
 	}
 	if !*logToStderr {
 		redirectLog(logFile)
@@ -203,7 +196,6 @@ func (copy *UrlCopy) runTransfer(transfer *tasks.Transfer) {
 	}
 
 	log.Info("Transfer accepted")
-	err = ReportStart(transfer)
 	if err != nil {
 		log.Errorf("Failed to send the start message: %s", err.Error())
 	}
@@ -241,7 +233,7 @@ func (copy *UrlCopy) runTransfer(transfer *tasks.Transfer) {
 		log.Infof("User filesize: %d", *transfer.Filesize)
 	}
 
-	log.Infof("Multihop: %t", copy.transferSet.Type == tasks.BatchMultihop)
+	log.Infof("Multihop: %t", copy.batch.Type == tasks.BatchMultihop)
 	log.Infof("IPv6: %t", copy.context.GetOptBoolean("GRIDFTP PLUGIN", "IPV6"))
 	log.Infof("UDT: %t", copy.context.GetOptBoolean("GRIDFTP PLUGIN", "ENABLE_UDT"))
 	if copy.context.GetOptBoolean("BDII", "ENABLED") {
@@ -331,10 +323,7 @@ func (copy *UrlCopy) runTransfer(transfer *tasks.Transfer) {
 
 // sendTerminalForRemaining send a terminal message for any transfer than hasn't run yet.
 // This could be due to external cancellation, or multihop failures.
-func (copy *UrlCopy) sendTerminalForRemaining() {
-	copy.mutex.Lock()
-	defer copy.mutex.Unlock()
-
+func (copy *UrlCopy) setTerminalForRemaining() {
 	var description string
 	if copy.multihopFailed {
 		description = "Transfer canceled because a previous hop failed"
@@ -342,7 +331,7 @@ func (copy *UrlCopy) sendTerminalForRemaining() {
 		description = "Transfer canceled"
 	}
 
-	for _, transfer := range copy.transferSet.Transfers {
+	for transfer := copy.next(); transfer != nil; transfer = copy.next() {
 		transfer.Status = &tasks.TransferStatus{
 			Error: &tasks.TransferError{
 				Scope:       tasks.ScopeTransfer,
@@ -353,17 +342,13 @@ func (copy *UrlCopy) sendTerminalForRemaining() {
 			Stats:   nil,
 			LogFile: nil,
 		}
-		err := ReportTerminal(transfer)
-		if err != nil {
-			log.Errorf("Failed to send the terminal message: %s", err.Error())
-		}
 	}
 }
 
 // Run runs the whole process.
 func (copy *UrlCopy) Run() {
-	for !copy.canceled && !copy.multihopFailed && len(copy.transferSet.Transfers) > 0 {
-		copy.transfer = copy.getFront()
+	copy.reportBatchStart()
+	for copy.transfer = copy.next(); copy.transfer != nil && !copy.canceled; copy.transfer = copy.next() {
 		copy.runTransfer(copy.transfer)
 
 		if copy.transfer.Status.Error != nil {
@@ -376,23 +361,17 @@ func (copy *UrlCopy) Run() {
 					copy.transfer.Status.Error.Code, copy.transfer.Status.Error.Description)
 			}
 
-			if copy.transferSet.Type == tasks.BatchMultihop {
+			if copy.batch.Type == tasks.BatchMultihop {
 				copy.multihopFailed = true
+				break
 			}
 		} else {
 			copy.transfer.Status.State = tasks.Finished
-			log.Infof("Transfer finished successfully")
-		}
-
-		if copy.popFront() {
-			err := ReportTerminal(copy.transfer)
-			if err != nil {
-				log.Errorf("Failed to send the terminal message: %s", err.Error())
-			}
+			log.Info("Transfer finished successfully")
 		}
 	}
-
-	copy.sendTerminalForRemaining()
+	copy.setTerminalForRemaining()
+	copy.reportBatchEnd()
 }
 
 // Triggers a graceful cancellation.
@@ -405,21 +384,21 @@ func (copy *UrlCopy) Cancel() {
 // the underlying gfal2 handler may be in an inconsistent state and the reason for the Panic.
 // It tries its best to send a termination message for all non-executed transfers.
 func (copy *UrlCopy) Panic(format string, args ...interface{}) {
+	// Common error for all
 	message := fmt.Sprintf(format, args...)
-
-	copy.mutex.Lock()
-	defer copy.mutex.Unlock()
-	for _, transfer := range copy.transferSet.Transfers {
-		transfer.Status.Error = &tasks.TransferError{
-			Scope:       tasks.ScopeAgent,
-			Code:        syscall.EINTR,
-			Description: message,
-			Recoverable: false,
-		}
-		err := ReportTerminal(transfer)
-		if err != nil {
-			log.Errorf("Failed to send the terminal message inside Panic: %s", err.Error())
-		}
+	error := &tasks.TransferError{
+		Scope:       tasks.ScopeAgent,
+		Code:        syscall.EINTR,
+		Description: message,
+		Recoverable: false,
 	}
-	copy.transferSet.Transfers = make([]*tasks.Transfer, 0)
+	// Not run yet
+	for transfer := copy.next(); transfer != nil; transfer = copy.next() {
+		transfer.Status.Error = error
+	}
+	// The one running
+	if copy.transfer != nil {
+		copy.transfer.Status.Error = error
+	}
+	copy.reportBatchEnd()
 }

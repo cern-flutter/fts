@@ -19,8 +19,8 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	log "github.com/Sirupsen/logrus"
 	"gitlab.cern.ch/flutter/fts/types/perf"
-	"gitlab.cern.ch/flutter/fts/types/tasks"
 	"gitlab.cern.ch/flutter/go-dirq"
 	"path"
 	"time"
@@ -28,36 +28,49 @@ import (
 
 var dirqBasePath = flag.String("DirQ", "/var/lib/fts3", "Base dir for dirq messages")
 
-// ReportStart sends the start message.
-func ReportStart(transfer *tasks.Transfer) error {
+// reportBatchStart sends the start message.
+func (copy *UrlCopy) reportBatchStart() {
 	startPath := path.Join(*dirqBasePath, "start")
 	startDirq, err := dirq.New(startPath)
 	if err != nil {
-		return err
+		log.Panic(err)
 	}
-	data, err := json.Marshal(transfer)
+	data, err := json.Marshal(copy.batch)
 	if err != nil {
-		return err
+		log.Panic(err)
 	}
-	return startDirq.Produce(data)
+	if err = startDirq.Produce(data); err != nil {
+		log.Panic(err)
+	}
 }
 
-// ReportStart sends the end (or terminal) message.
-func ReportTerminal(transfer *tasks.Transfer) error {
+// reportBatchEnd sends the end (or terminal) message.
+func (copy *UrlCopy) reportBatchEnd() {
+	copy.mutex.Lock()
+	defer copy.mutex.Unlock()
+
+	if copy.terminalSent {
+		return
+	}
+
 	endPath := path.Join(*dirqBasePath, "end")
 	endDirq, err := dirq.New(endPath)
 	if err != nil {
-		return err
+		log.Panic(err)
 	}
-	data, err := json.Marshal(transfer)
+	data, err := json.Marshal(copy.batch)
 	if err != nil {
-		return err
+		log.Panic(err)
 	}
-	return endDirq.Produce(data)
+	if err = endDirq.Produce(data); err != nil {
+		log.Panic(err)
+	}
+
+	copy.terminalSent = true
 }
 
 // ReportPerformance sends the progress of a transfer.
-func ReportPerformance(perf *perf.Marker) error {
+func (copy *UrlCopy) reportPerformance(perf *perf.Marker) error {
 	perf.Timestamp = time.Now()
 
 	perfPath := path.Join(*dirqBasePath, "perf")
