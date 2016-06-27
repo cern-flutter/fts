@@ -142,7 +142,7 @@ func TestSimpleTransfer(t *testing.T) {
 	}
 
 	path := Serialize(t, task)
-	copy := NewUrlCopy(path)
+	copy := newURLCopy(path)
 	copy.Run()
 
 	start := ConsumeStartMessages(t)
@@ -190,7 +190,7 @@ func TestPanic(t *testing.T) {
 	}
 
 	path := Serialize(t, task)
-	copy := NewUrlCopy(path)
+	copy := newURLCopy(path)
 	copy.Panic("TEST PANIC MESSAGE")
 
 	end := ConsumeEndMessages(t)
@@ -231,7 +231,7 @@ func TestCancel(t *testing.T) {
 	}
 
 	path := Serialize(t, task)
-	copy := NewUrlCopy(path)
+	copy := newURLCopy(path)
 	go func() {
 		time.Sleep(1 * time.Second)
 		copy.Cancel()
@@ -288,7 +288,7 @@ func TestTimeout(t *testing.T) {
 	}
 
 	path := Serialize(t, task)
-	copy := NewUrlCopy(path)
+	copy := newURLCopy(path)
 	copy.Run()
 
 	start := ConsumeStartMessages(t)
@@ -342,7 +342,7 @@ func TestMultipleSimple(t *testing.T) {
 	}
 
 	path := Serialize(t, task)
-	copy := NewUrlCopy(path)
+	copy := newURLCopy(path)
 	copy.Run()
 
 	start := ConsumeStartMessages(t)
@@ -397,7 +397,7 @@ func TestMultipleCancel(t *testing.T) {
 	}
 
 	path := Serialize(t, task)
-	copy := NewUrlCopy(path)
+	copy := newURLCopy(path)
 	go func() {
 		time.Sleep(4 * time.Second)
 		copy.Cancel()
@@ -449,7 +449,7 @@ func TestMultiplePanic(t *testing.T) {
 	}
 
 	path := Serialize(t, task)
-	copy := NewUrlCopy(path)
+	copy := newURLCopy(path)
 	go func() {
 		time.Sleep(3 * time.Second)
 		copy.Panic("Signal 386")
@@ -500,7 +500,7 @@ func TestMultiHop(t *testing.T) {
 	}
 
 	path := Serialize(t, task)
-	copy := NewUrlCopy(path)
+	copy := newURLCopy(path)
 	copy.Run()
 
 	start := ConsumeStartMessages(t)

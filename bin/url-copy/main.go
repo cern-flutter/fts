@@ -27,7 +27,7 @@ import (
 // signalHandler listen for signals that are triggered either by a fatal error inside
 // the code (i.e. SIGSEGV), or cancellation signals coming from FTS (i.e. SIGTERM).
 // For fatal error signals, it will force-quit after trying to send the terminal messages.
-func signalHandler(copy *UrlCopy) {
+func signalHandler(copy *urlCopy) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGABRT, syscall.SIGSEGV, syscall.SIGILL, syscall.SIGFPE,
 		syscall.SIGBUS, syscall.SIGTRAP, syscall.SIGSYS, syscall.SIGINT, syscall.SIGTERM)
@@ -57,7 +57,7 @@ func main() {
 		log.Panic("Missing task file.")
 	}
 
-	copy := NewUrlCopy(flag.Arg(0))
+	copy := newURLCopy(flag.Arg(0))
 	go signalHandler(copy)
 	copy.Run()
 }

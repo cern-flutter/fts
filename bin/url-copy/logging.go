@@ -58,7 +58,7 @@ func setupLogging() {
 }
 
 // Generate a transfer ID from the running transfer.
-func generateTransferId(transfer *tasks.Transfer) string {
+func generateTransferID(transfer *tasks.Transfer) string {
 	return fmt.Sprintf("%s_%s_%d", transfer.JobID, transfer.TransferID, transfer.Retry)
 }
 
@@ -69,7 +69,7 @@ func generateLogPath(transfer *tasks.Transfer) (log string, err error) {
 
 	parent := path.Join(*logBaseDir, dateName, pairName)
 	err = os.MkdirAll(parent, 0755)
-	log = path.Join(parent, generateTransferId(transfer))
+	log = path.Join(parent, generateTransferID(transfer))
 	return
 }
 

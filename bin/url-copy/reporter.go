@@ -29,7 +29,7 @@ import (
 var dirqBasePath = flag.String("DirQ", "/var/lib/fts3", "Base dir for dirq messages")
 
 // reportBatchStart sends the start message.
-func (copy *UrlCopy) reportBatchStart() {
+func (copy *urlCopy) reportBatchStart() {
 	startPath := path.Join(*dirqBasePath, "start")
 	startDirq, err := dirq.New(startPath)
 	if err != nil {
@@ -45,7 +45,7 @@ func (copy *UrlCopy) reportBatchStart() {
 }
 
 // reportBatchEnd sends the end (or terminal) message.
-func (copy *UrlCopy) reportBatchEnd() {
+func (copy *urlCopy) reportBatchEnd() {
 	copy.mutex.Lock()
 	defer copy.mutex.Unlock()
 
@@ -70,7 +70,7 @@ func (copy *UrlCopy) reportBatchEnd() {
 }
 
 // ReportPerformance sends the progress of a transfer.
-func (copy *UrlCopy) reportPerformance(perf *perf.Marker) error {
+func (copy *urlCopy) reportPerformance(perf *perf.Marker) error {
 	perf.Timestamp = time.Now()
 
 	perfPath := path.Join(*dirqBasePath, "perf")

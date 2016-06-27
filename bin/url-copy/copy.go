@@ -36,7 +36,7 @@ import (
 var keepTaskFile = flag.Bool("KeepTaskFile", false, "Do not delete the task file once read")
 var x509proxy = flag.String("Proxy", "", "User X509 proxy")
 
-type UrlCopy struct {
+type urlCopy struct {
 	context        *gfal2.Context
 	canceled       bool
 	multihopFailed bool
@@ -52,9 +52,9 @@ type UrlCopy struct {
 
 // NewUrlCopy creates a new instance of UrlCopy, initialized using the task
 // serialized in the file pointed by taskfile.
-func NewUrlCopy(taskfile string) *UrlCopy {
+func newURLCopy(taskfile string) *urlCopy {
 	var err error
-	copy := UrlCopy{}
+	copy := urlCopy{}
 
 	raw, err := ioutil.ReadFile(taskfile)
 	if err != nil {
@@ -76,13 +76,13 @@ func NewUrlCopy(taskfile string) *UrlCopy {
 
 	copy.context, err = gfal2.NewContext()
 	if err != nil {
-		copy.Panicf("Could not instantiate the gfal2 context: %s", err.Error())
+		copy.Panic("Could not instantiate the gfal2 context: %s", err.Error())
 	}
 	return &copy
 }
 
 // next returns the next transfer in the list, nil on end
-func (copy *UrlCopy) next() *tasks.Transfer {
+func (copy *urlCopy) next() *tasks.Transfer {
 	copy.mutex.Lock()
 	defer copy.mutex.Unlock()
 
@@ -90,13 +90,12 @@ func (copy *UrlCopy) next() *tasks.Transfer {
 		transfer := copy.batch.Transfers[copy.transferIndex]
 		copy.transferIndex++
 		return transfer
-	} else {
-		return nil
 	}
+	return nil
 }
 
 // setupGfal2ForTransfer prepares the gfal2 context for this particular transfer.
-func (copy *UrlCopy) setupGfal2ForTransfer(transfer *tasks.Transfer) {
+func (copy *urlCopy) setupGfal2ForTransfer(transfer *tasks.Transfer) {
 	copy.context.SetOptBoolean("GRIDFTP PLUGIN", "SESSION_REUSE", true)
 	copy.context.SetOptBoolean("GRIDFTP PLUGIN", "ENABLE_UDT", transfer.Parameters.EnableUdt)
 	copy.context.SetOptBoolean("GRIDFTP PLUGIN", "IPV6", transfer.Parameters.EnableIpv6)
@@ -122,7 +121,7 @@ func (copy *UrlCopy) setupGfal2ForTransfer(transfer *tasks.Transfer) {
 }
 
 // createCopyHandler creates and prepares a gfal2 copy handler to run the transfer.
-func (copy *UrlCopy) createCopyHandler(transfer *tasks.Transfer) (handler *gfal2.TransferHandler, err gfal2.GError) {
+func (copy *urlCopy) createCopyHandler(transfer *tasks.Transfer) (handler *gfal2.TransferHandler, err gfal2.GError) {
 	handler, err = copy.context.NewTransferHandler()
 	if err != nil {
 		return
@@ -156,7 +155,7 @@ func (copy *UrlCopy) createCopyHandler(transfer *tasks.Transfer) (handler *gfal2
 }
 
 // Called by gfal2 when there are performance markers available.
-func (copy *UrlCopy) NotifyPerformanceMarker(marker gfal2.Marker) {
+func (copy *urlCopy) NotifyPerformanceMarker(marker gfal2.Marker) {
 	perf := &perf.Marker{
 		JobID:              copy.transfer.JobID,
 		TransferID:         copy.transfer.TransferID,
@@ -174,7 +173,7 @@ func (copy *UrlCopy) NotifyPerformanceMarker(marker gfal2.Marker) {
 
 // runTransfer prepares the context and copy handler, and run the transfer. It sends the start message,
 // and returns the termination message, but it does not send it.
-func (copy *UrlCopy) runTransfer(transfer *tasks.Transfer) {
+func (copy *urlCopy) runTransfer(transfer *tasks.Transfer) {
 	var err error
 
 	transfer.Status = &tasks.TransferStatus{
@@ -188,7 +187,7 @@ func (copy *UrlCopy) runTransfer(transfer *tasks.Transfer) {
 
 	logFile, err := generateLogPath(transfer)
 	if err != nil {
-		copy.Panicf("Could not create the log file: %s", err.Error())
+		copy.Panic("Could not create the log file: %s", err.Error())
 	}
 	if !*logToStderr {
 		redirectLog(logFile)
@@ -306,7 +305,6 @@ func (copy *UrlCopy) runTransfer(transfer *tasks.Transfer) {
 			Description: gerr.Error(),
 			Recoverable: IsRecoverable(tasks.ScopeTransfer, gerr.Code()),
 		}
-		return
 	} else {
 		// Adjust size and throughput if the protocol didn't give us perf.markers
 		if transfer.Status.Stats.TransferredBytes == 0 {
@@ -323,7 +321,7 @@ func (copy *UrlCopy) runTransfer(transfer *tasks.Transfer) {
 
 // sendTerminalForRemaining send a terminal message for any transfer than hasn't run yet.
 // This could be due to external cancellation, or multihop failures.
-func (copy *UrlCopy) setTerminalForRemaining() {
+func (copy *urlCopy) setTerminalForRemaining() {
 	var description string
 	if copy.multihopFailed {
 		description = "Transfer canceled because a previous hop failed"
@@ -346,7 +344,7 @@ func (copy *UrlCopy) setTerminalForRemaining() {
 }
 
 // Run runs the whole process.
-func (copy *UrlCopy) Run() {
+func (copy *urlCopy) Run() {
 	copy.reportBatchStart()
 	for copy.transfer = copy.next(); copy.transfer != nil && !copy.canceled; copy.transfer = copy.next() {
 		copy.runTransfer(copy.transfer)
@@ -375,7 +373,7 @@ func (copy *UrlCopy) Run() {
 }
 
 // Triggers a graceful cancellation.
-func (copy *UrlCopy) Cancel() {
+func (copy *urlCopy) Cancel() {
 	copy.context.Cancel()
 	copy.canceled = true
 }
@@ -383,7 +381,7 @@ func (copy *UrlCopy) Cancel() {
 // Ungracefully terminates the transfers. It doesn't even bother sending a Cancel, since
 // the underlying gfal2 handler may be in an inconsistent state and the reason for the Panic.
 // It tries its best to send a termination message for all non-executed transfers.
-func (copy *UrlCopy) Panic(format string, args ...interface{}) {
+func (copy *urlCopy) Panic(format string, args ...interface{}) {
 	// Common error for all
 	message := fmt.Sprintf(format, args...)
 	error := &tasks.TransferError{
