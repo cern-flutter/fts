@@ -3,7 +3,7 @@ CADIR=${HOME}/.dev-ca
 CERTDIR=${HOME}/.dev-cert
 DOCKER_PREFIX=docker.cern.ch/flutter-dev
 
-.PHONY: all install ca cert up
+.PHONY: all install test-deps test ca cert up
 
 all: install
 
@@ -13,6 +13,12 @@ $(OUTDIR):
 
 install: $(OUTDIR)
 	export GOBIN=`readlink -f $(OUTDIR)`; echo ./bin/* | xargs go install
+
+test-deps:
+	for i in `find . -name "*_test.go"`; do dirname $$i; done | sort | uniq | xargs go get -t
+
+test: test-deps
+	for i in `find . -name "*_test.go"`; do dirname $$i; done | sort | uniq | xargs go test -v
 
 docker: docker-db docker-broker docker-worker docker-sched docker-rest
 

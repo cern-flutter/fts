@@ -18,7 +18,6 @@ package surl
 
 import (
 	"encoding/json"
-	"gopkg.in/mgo.v2/bson"
 	"testing"
 )
 
@@ -109,30 +108,3 @@ func TestDeserializeJson(t *testing.T) {
 	}
 }
 
-// Bson needs a document to marshal
-type BsonStruct struct {
-	Surl *SURL
-}
-
-func TestSerializeBson(t *testing.T) {
-	original := "http://subdomain.domain.com:8080/path?query=args"
-
-	var err error
-	var doc BsonStruct
-	if doc.Surl, err = Parse(original); err != nil {
-		t.Fatal(err)
-	}
-	var serialized []byte
-	if serialized, err = bson.Marshal(doc); err != nil {
-		t.Fatal(err)
-	}
-
-	var doc2 BsonStruct
-	if err = bson.Unmarshal(serialized, &doc2); err != nil {
-		t.Fatal(err)
-	}
-
-	if *doc2.Surl != *doc.Surl {
-		t.Fatal("Decoded does not match", doc, doc2)
-	}
-}
