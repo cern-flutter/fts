@@ -2,5 +2,8 @@ image: golang:1.6
 
 test:
     script:
+        - mkdir -p "$GOPATH/src/gitlab.cern.ch/flutter"
+        - ln -sfv "$(pwd -P)" "$GOPATH/src/gitlab.cern.ch/flutter"
+        - cd "$GOPATH/src/gitlab.cern.ch/flutter/fts"
         - make test 
 
