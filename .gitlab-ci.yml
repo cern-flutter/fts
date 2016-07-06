@@ -1,0 +1,6 @@
+image: golang:1.6
+
+test:
+    script:
+        - make test 
+
