@@ -18,7 +18,7 @@ test-deps:
 	for i in `find . -name "*_test.go"`; do dirname $$i; done | sort | uniq | xargs go get -t
 
 test: test-deps
-	for i in `find . -name "*_test.go"`; do dirname $$i; done | sort | uniq | xargs go test -v
+	for i in `find . -name "*_test.go"`; do dirname $$i; done | sort | uniq | xargs go test -v -cover
 
 docker: docker-db docker-broker docker-worker docker-sched docker-rest
 
