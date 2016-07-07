@@ -17,9 +17,6 @@
 
 FROM fts-base
 
-# Install requirements
-RUN yum install -y gfal2-all libdirq
-
 # Copy required binaries
 ADD "build/fts-x509d" "build/url-copy" "build/fts-workerd" "/usr/bin/"
 
