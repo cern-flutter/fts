@@ -1,4 +1,4 @@
-image: golang:1.6
+image: docker.cern.ch/flutter-dev/build:latest
 
 test:
     script:
