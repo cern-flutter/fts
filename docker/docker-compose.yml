@@ -1,14 +1,14 @@
 database:
-  image: fts-db
-  container_name: fts-db
+  image: flutter-dev/db
+  container_name: database
   env_file:
     dev.env
   ports:
     - "5432:5432"
 
 broker:
-  image: fts-broker
-  container_name: fts-broker
+  image: flutter-dev/broker
+  container_name: broker 
   env_file:
     dev.env
   ports:
@@ -16,7 +16,7 @@ broker:
     - "61613:61613"
 
 worker:
-  image: fts-worker
+  image: flutter-dev/worker
   links:
     - database
     - broker
@@ -24,14 +24,14 @@ worker:
     dev.env
 
 sched:
-  image: fts-sched
+  image: flutter-dev/sched
   links:
     - broker
   env_file:
     dev.env
 
 rest:
-  image: fts-rest
+  image: flutter-dev/rest
   links:
     - database
     - broker
@@ -41,3 +41,4 @@ rest:
     - "8446:8446"
   volumes:
     - "${HOME}/.dev-cert:/etc/grid-security/localhost"
+

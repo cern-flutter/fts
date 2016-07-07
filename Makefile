@@ -16,22 +16,22 @@ install: $(OUTDIR)
 docker: docker-db docker-broker docker-worker docker-sched docker-rest
 
 docker-base:
-	docker build -t fts-base -f docker/base/Dockerfile .
+	docker build -t flutter-dev/base -f docker/base/Dockerfile .
 
 docker-worker: docker-base install
-	docker build -t fts-worker -f docker/worker/Dockerfile .
+	docker build -t flutter-dev/worker -f docker/worker/Dockerfile .
 
 docker-sched: docker-base install
-	docker build -t fts-sched -f docker/scheduler/Dockerfile .
+	docker build -t flutter-dev/sched -f docker/scheduler/Dockerfile .
 
 docker-rest: docker-base install
-	docker build -t fts-rest -f docker/rest/Dockerfile .
+	docker build -t flutter-dev/rest -f docker/rest/Dockerfile .
 
 docker-db:
-	docker build -t fts-db -f docker/database/Dockerfile .
+	docker build -t flutter-dev/db -f docker/database/Dockerfile .
 
 docker-broker:
-	docker build -t fts-broker -f docker/broker/Dockerfile .
+	docker build -t flutter-dev/broker -f docker/broker/Dockerfile .
 
 ca: $(CADIR)/private/ca_key.pem
 
