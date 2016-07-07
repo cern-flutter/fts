@@ -1,5 +1,5 @@
 database:
-  image: flutter-dev/db
+  image: docker.cern.ch/flutter-dev/db
   container_name: database
   env_file:
     dev.env
@@ -7,7 +7,7 @@ database:
     - "5432:5432"
 
 broker:
-  image: flutter-dev/broker
+  image: docker.cern.ch/flutter-dev/broker
   container_name: broker 
   env_file:
     dev.env
@@ -16,7 +16,7 @@ broker:
     - "61613:61613"
 
 worker:
-  image: flutter-dev/worker
+  image: docker.cern.ch/flutter-dev/worker
   links:
     - database
     - broker
@@ -24,14 +24,14 @@ worker:
     dev.env
 
 sched:
-  image: flutter-dev/sched
+  image: docker.cern.ch/flutter-dev/sched
   links:
     - broker
   env_file:
     dev.env
 
 rest:
-  image: flutter-dev/rest
+  image: docker.cern.ch/flutter-dev/rest
   links:
     - database
     - broker

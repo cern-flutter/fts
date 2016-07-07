@@ -15,7 +15,7 @@
 
 # FTS REST container
 
-FROM flutter-dev/base
+FROM docker.cern.ch/flutter-dev/base
 
 # gfal2 
 RUN yum install -y gfal2-plugin-srm gfal2-plugin-gridftp gfal2-plugin-http gfal2-plugin-xrootd gfal2-plugin-mock

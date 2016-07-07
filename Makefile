@@ -1,6 +1,7 @@
 OUTDIR=build
 CADIR=${HOME}/.dev-ca
 CERTDIR=${HOME}/.dev-cert
+DOCKER_PREFIX=docker.cern.ch/flutter-dev
 
 .PHONY: all install ca cert up
 
@@ -16,25 +17,25 @@ install: $(OUTDIR)
 docker: docker-db docker-broker docker-worker docker-sched docker-rest
 
 docker-base:
-	docker build -t flutter-dev/base -f docker/base/Dockerfile .
+	docker build -t $(DOCKER_PREFIX)/base -f docker/base/Dockerfile .
 
 docker-worker: docker-base install
-	docker build -t flutter-dev/worker -f docker/worker/Dockerfile .
+	docker build -t $(DOCKER_PREFIX)/worker -f docker/worker/Dockerfile .
 
 docker-sched: docker-base install
-	docker build -t flutter-dev/sched -f docker/scheduler/Dockerfile .
+	docker build -t $(DOCKER_PREFIX)/sched -f docker/scheduler/Dockerfile .
 
 docker-rest: docker-base install
-	docker build -t flutter-dev/rest -f docker/rest/Dockerfile .
+	docker build -t $(DOCKER_PREFIX)/rest -f docker/rest/Dockerfile .
 
 docker-db:
-	docker build -t flutter-dev/db -f docker/database/Dockerfile .
+	docker build -t $(DOCKER_PREFIX)/db -f docker/database/Dockerfile .
 
 docker-broker:
-	docker build -t flutter-dev/broker -f docker/broker/Dockerfile .
+	docker build -t $(DOCKER_PREFIX)/broker -f docker/broker/Dockerfile .
 
 docker-build:
-	docker build -t flutter-dev/build -f docker/build/Dockerfile .
+	docker build -t $(DOCKER_PREFIX)/build -f docker/build/Dockerfile .
 
 ca: $(CADIR)/private/ca_key.pem
 

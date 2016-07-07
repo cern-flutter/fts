@@ -15,7 +15,7 @@
 
 # FTS REST container
 
-FROM flutter-dev/base
+FROM docker.cern.ch/flutter-dev/base
 
 # Copy required binaries
 ADD "build/fts-gated" "build/fts-x509d" "/usr/bin/"
