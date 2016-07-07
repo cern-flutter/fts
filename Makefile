@@ -1,30 +1,43 @@
-OUTDIR=build
+BUILDDIR=./artifacts
 CADIR=${HOME}/.dev-ca
 CERTDIR=${HOME}/.dev-cert
 DOCKER_PREFIX=docker.cern.ch/flutter-dev
 
-.PHONY: all install test-deps test ca cert up
+.PHONY: artifacts
 
-all: install
+$(BUILDDIR):
+	mkdir -p $(BUILDDIR)
 
-$(OUTDIR):
-	mkdir -p $@
-	go get ./bin/...
+# Binaries
+binaries:
+	export GOBIN="$$GOPATH/bin"; go get -v ./bin/...
+	export GOBIN="$$GOPATH/bin"; echo ./bin/* | xargs go install
 
-install: $(OUTDIR)
-	export GOBIN=`readlink -f $(OUTDIR)`; echo ./bin/* | xargs go install
-
+# Tests
 test-deps:
 	for i in `find . -name "*_test.go"`; do dirname $$i; done | sort | uniq | xargs go get -t
 
 test: test-deps
 	for i in `find . -name "*_test.go"`; do dirname $$i; done | sort | uniq | xargs go test -v -cover
 
-docker: docker-db docker-broker docker-worker docker-sched docker-rest
-
-docker-base:
+# Base image with common dependencies
+image-base:
 	docker build -t $(DOCKER_PREFIX)/base -f docker/base/Dockerfile .
 
+# Build base images, includes -devel packages, compiler...
+image-build-base:
+	docker build -t $(DOCKER_PREFIX)/build-base -f docker/build/Dockerfile.base .
+
+# Build image and container, used to actually build the code
+image-build:
+	docker build -t $(DOCKER_PREFIX)/build -f docker/build/Dockerfile .
+
+# Run the build
+build: $(BUILDDIR)
+	docker ps -a | grep flutter-build || docker create --volume="$$PWD:/src" --name=flutter-build $(DOCKER_PREFIX)/build
+	docker start -a flutter-build && docker cp "flutter-build:/go/bin" $(BUILDDIR)
+
+##
 docker-worker: docker-base install
 	docker build -t $(DOCKER_PREFIX)/worker -f docker/worker/Dockerfile .
 
@@ -39,10 +52,10 @@ docker-db:
 
 docker-broker:
 	docker build -t $(DOCKER_PREFIX)/broker -f docker/broker/Dockerfile .
+###
 
-docker-build:
-	docker build -t $(DOCKER_PREFIX)/build -f docker/build/Dockerfile .
 
+# Development root CA
 ca: $(CADIR)/private/ca_key.pem
 
 $(CADIR)/private/cakey.pem:

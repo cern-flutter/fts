@@ -29,9 +29,6 @@ RUN yum install -y supervisor
 RUN groupadd --system --gid 497 "fts"
 RUN useradd --system --gid "fts" --uid 497 "fts"
 
-# VO and Root CA
-RUN yum install -y lcg-CA voms-config-all
-
 # Log directories
 RUN mkdir -p "/var/log/fts"
 RUN mkdir -p "/var/lib/fts"
