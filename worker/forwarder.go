@@ -102,6 +102,7 @@ func (f *Forwarder) forwardStart() error {
 			return err
 		}
 		log.Debug("Forwarded start message")
+		log.Debug(string(start.Message))
 	}
 	return nil
 }
@@ -123,6 +124,7 @@ func (f *Forwarder) forwardEnd() error {
 			return err
 		}
 		log.Debug("Forwarded end message")
+		log.Debug(string(end.Message))
 	}
 	return nil
 }
@@ -144,6 +146,7 @@ func (f *Forwarder) forwardPerf() error {
 			return err
 		}
 		log.Debug("Forwarded performance message")
+		log.Debug(string(perf.Message))
 	}
 	return nil
 }
