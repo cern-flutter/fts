@@ -17,6 +17,9 @@
 
 FROM flutter-dev/base
 
+# gfal2 
+RUN yum install -y gfal2-plugin-srm gfal2-plugin-gridftp gfal2-plugin-http gfal2-plugin-xrootd gfal2-plugin-mock
+
 # Copy required binaries
 ADD "build/fts-x509d" "build/url-copy" "build/fts-workerd" "/usr/bin/"
 

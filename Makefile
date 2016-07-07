@@ -33,6 +33,9 @@ docker-db:
 docker-broker:
 	docker build -t flutter-dev/broker -f docker/broker/Dockerfile .
 
+docker-build:
+	docker build -t flutter-dev/build -f docker/build/Dockerfile .
+
 ca: $(CADIR)/private/ca_key.pem
 
 $(CADIR)/private/cakey.pem:

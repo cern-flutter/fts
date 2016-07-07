@@ -41,15 +41,3 @@ RUN chown fts.fts "/var/lib/fts"
 RUN chmod 0775 "/var/log/fts"
 RUN chmod 0775 "/var/lib/fts"
 
-# Go
-ADD "https://storage.googleapis.com/golang/go1.6.2.linux-amd64.tar.gz" "/"
-RUN tar xzf "go1.6.2.linux-amd64.tar.gz"
-RUN rm -f "go1.6.2.linux-amd64.tar.gz"
-ADD "docker/base/go.sh" "/etc/profile.d/"
-
-# gfal2
-RUN yum install -y gfal2-plugin-srm gfal2-plugin-gridftp gfal2-plugin-http gfal2-plugin-xrootd gfal2-plugin-mock
-
-# git
-RUN yum install -y git
-
