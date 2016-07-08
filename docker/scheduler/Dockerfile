@@ -17,11 +17,11 @@
 
 FROM docker.cern.ch/flutter-dev/base
 
-# Copy required binaries
-ADD "build/fts-schedd" "/usr/bin/"
-
 # Supervisor configuration
 COPY "docker/scheduler/supervisord.conf" "/etc/supervisor/conf.d/supervisord.conf"
 
 # Start supervisor
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+
+# Copy required binaries
+ADD "artifacts/bin/fts-schedd" "/usr/bin/"

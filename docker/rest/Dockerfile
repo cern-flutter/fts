@@ -17,13 +17,11 @@
 
 FROM docker.cern.ch/flutter-dev/base
 
-# Copy required binaries
-ADD "build/fts-gated" "build/fts-x509d" "/usr/bin/"
-
 # Install dependencies
 RUN yum install -y httpd gridsite mod_wsgi python-pip
 RUN pip install --upgrade pip
 RUN yum install -y gcc openssl-devel python-devel swig
+RUN yum install -y lcg-CA voms-config-all
 
 # Add apache user to fts group
 RUN usermod -a -G fts apache
@@ -52,3 +50,6 @@ EXPOSE 8446
 
 # Start supervisor
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+
+# Copy required binaries
+ADD "artifacts/bin/fts-gated" "artifacts/bin/fts-x509d" "/usr/bin/"

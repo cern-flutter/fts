@@ -17,14 +17,14 @@
 
 FROM docker.cern.ch/flutter-dev/base
 
-# gfal2 
+# gfal2 plugins
 RUN yum install -y gfal2-plugin-srm gfal2-plugin-gridftp gfal2-plugin-http gfal2-plugin-xrootd gfal2-plugin-mock
-
-# Copy required binaries
-ADD "build/fts-x509d" "build/url-copy" "build/fts-workerd" "/usr/bin/"
 
 # Supervisor configuration
 COPY "docker/worker/supervisord.conf" "/etc/supervisor/conf.d/supervisord.conf"
 
 # Start supervisor
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+
+# Copy required binaries
+ADD "artifacts/bin/fts-x509d" "artifacts/bin/url-copy" "artifacts/bin/fts-workerd" "/usr/bin/"

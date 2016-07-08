@@ -3,7 +3,7 @@ CADIR=${HOME}/.dev-ca
 CERTDIR=${HOME}/.dev-cert
 DOCKER_PREFIX=docker.cern.ch/flutter-dev
 
-.PHONY: artifacts
+.PHONY: artifacts docker-all
 
 $(BUILDDIR):
 	mkdir -p $(BUILDDIR)
@@ -32,28 +32,28 @@ image-build-base:
 image-build:
 	docker build -t $(DOCKER_PREFIX)/build -f docker/build/Dockerfile .
 
-# Run the build
+# Build binaries
 build: $(BUILDDIR)
 	docker ps -a | grep flutter-build || docker create --volume="$$PWD:/src" --name=flutter-build $(DOCKER_PREFIX)/build
 	docker start -a flutter-build && docker cp "flutter-build:/go/bin" $(BUILDDIR)
 
-##
-docker-worker: docker-base install
-	docker build -t $(DOCKER_PREFIX)/worker -f docker/worker/Dockerfile .
-
-docker-sched: docker-base install
-	docker build -t $(DOCKER_PREFIX)/sched -f docker/scheduler/Dockerfile .
-
-docker-rest: docker-base install
+# Containers with the binaries
+docker-rest: build
 	docker build -t $(DOCKER_PREFIX)/rest -f docker/rest/Dockerfile .
 
-docker-db:
+docker-sched: build
+	docker build -t $(DOCKER_PREFIX)/sched -f docker/scheduler/Dockerfile .
+
+docker-worker: build
+	docker build -t $(DOCKER_PREFIX)/worker -f docker/worker/Dockerfile .
+
+docker-db: build
 	docker build -t $(DOCKER_PREFIX)/db -f docker/database/Dockerfile .
 
-docker-broker:
+docker-broker: build
 	docker build -t $(DOCKER_PREFIX)/broker -f docker/broker/Dockerfile .
-###
 
+docker-all: docker-broker docker-db docker-worker docker-sched docker-rest
 
 # Development root CA
 ca: $(CADIR)/private/ca_key.pem
