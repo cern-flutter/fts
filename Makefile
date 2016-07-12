@@ -24,13 +24,10 @@ test: test-deps
 image-base:
 	docker build -t $(DOCKER_PREFIX)/base -f docker/base/Dockerfile .
 
-# Build base images, includes -devel packages, compiler...
-image-build-base:
-	docker build -t $(DOCKER_PREFIX)/build-base -f docker/build/Dockerfile.base .
-
 # Build image and container, used to actually build the code
 image-build:
 	docker build -t $(DOCKER_PREFIX)/build -f docker/build/Dockerfile .
+	docker rm flutter-build || true
 
 # Build binaries
 build: $(BUILDDIR)

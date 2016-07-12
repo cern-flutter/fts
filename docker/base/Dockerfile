@@ -37,4 +37,3 @@ RUN chown fts.fts "/var/log/fts"
 RUN chown fts.fts "/var/lib/fts"
 RUN chmod 0775 "/var/log/fts"
 RUN chmod 0775 "/var/lib/fts"
-

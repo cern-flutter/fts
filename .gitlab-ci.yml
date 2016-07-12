@@ -1,9 +1,25 @@
-image: docker.cern.ch/flutter-dev/build:latest
+image: docker:latest
 
-test:
+stages:
+    - base-images
+    - test
+
+create-build-image:
+    stage: base-images
+    before_script:
+        - docker info
+        - docker login -p "${REGISTRY_PASSWD}" -u "${REGISTRY_USER}" docker.cern.ch
+    script:
+        - docker build -t docker.cern.ch/flutter-dev/build -f docker/build/Dockerfile .
+        - docker push docker.cern.ch/flutter-dev/build
+    after_script:
+        - docker logout docker.cern.ch
+
+flutter-tests:
+    stage: test
+    image: docker-ro.cern.ch/flutter-dev/build
     script:
         - mkdir -p "$GOPATH/src/gitlab.cern.ch/flutter"
         - ln -sfv "$(pwd -P)" "$GOPATH/src/gitlab.cern.ch/flutter"
         - cd "$GOPATH/src/gitlab.cern.ch/flutter/fts"
         - make test 
-
