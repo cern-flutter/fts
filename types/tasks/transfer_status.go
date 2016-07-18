@@ -51,42 +51,42 @@ const (
 type (
 	// TransferError holds details about a transfer error
 	TransferError struct {
-		Scope       string        `json:"scope" bson:"scope"`
-		Code        syscall.Errno `json:"code" bson:"code"`
-		Description string        `json:"description" bson:"description"`
-		Recoverable bool          `json:"recoverable" bson:"recoverable"`
+		Scope       string        `json:"scope"`
+		Code        syscall.Errno `json:"code"`
+		Description string        `json:"description"`
+		Recoverable bool          `json:"recoverable"`
 	}
 
 	// TransferIntervals holds details about the time it took each stage
 	TransferIntervals struct {
-		Total interval.Interval `json:"total" bson:"total"`
+		Total interval.Interval `json:"total"`
 
-		Transfer        *interval.Interval `json:"transfer_time,omitempty" bson:"transfer_time"`
-		SourceChecksum  *interval.Interval `json:"source_checksum,omitempty" bson:"source_checksum"`
-		DestChecksum    *interval.Interval `json:"dest_checksum,omitempty" bson:"dest_checksum"`
-		SrmPreparation  *interval.Interval `json:"srm_preparation,omitempty" bson:"srm_preparation"`
-		SrmFinalization *interval.Interval `json:"srm_finalization,omitempty" bson:"srm_finalization"`
+		Transfer        *interval.Interval `json:"transfer_time,omitempty"`
+		SourceChecksum  *interval.Interval `json:"source_checksum,omitempty"`
+		DestChecksum    *interval.Interval `json:"dest_checksum,omitempty"`
+		SrmPreparation  *interval.Interval `json:"srm_preparation,omitempty"`
+		SrmFinalization *interval.Interval `json:"srm_finalization,omitempty"`
 	}
 
 	// TransferRunStatistics holds details about a transfer execution
 	TransferRunStatistics struct {
-		Throughput       float32 `json:"throughput" bson:"throughput"`
-		TransferredBytes int64   `json:"transferred" bson:"transferred"`
+		Throughput       float32 `json:"throughput"`
+		TransferredBytes int64   `json:"transferred"`
 
-		Intervals TransferIntervals `json:"intervals" bson:"intervals"`
+		Intervals TransferIntervals `json:"intervals"`
 	}
 
 	// TransferStatus holds the specific status of a transfer during the whole process chain
 	TransferStatus struct {
 		// Transfer state
-		State string `json:"state" bson:"state"`
+		State string `json:"state"`
 		// Error, if any
-		Error *TransferError `json:"error" bson:"error"`
+		Error *TransferError `json:"error"`
 		// Associated message
-		Message string `json:"message" bson:"message"`
+		Message string `json:"message"`
 		// Statistics, when it is done
-		Stats *TransferRunStatistics `json:"stats" bson:"stats"`
+		Stats *TransferRunStatistics `json:"stats"`
 		// Log file, for when it s running
-		LogFile *string `json:"log" bson:"log"`
+		LogFile *string `json:"log"`
 	}
 )

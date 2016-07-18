@@ -38,72 +38,72 @@ type (
 	// TransferParameters determines the transfer behaviour
 	TransferParameters struct {
 		// If true, there will be no preparatory steps
-		OnlyCopy bool `json:"only_copy" bson:"only_copy"`
+		OnlyCopy bool `json:"only_copy"`
 		// TCP buffer size
-		TCPBufferSize uint32 `json:"tcp_buffer_size" bson:"tcp_buffer_size"`
+		TCPBufferSize uint32 `json:"tcp_buffer_size"`
 		// Number of TCP connections if supported by the protocol
-		NoStreams uint8 `json:"nstreams" bson:"nstreams"`
+		NoStreams uint8 `json:"nstreams"`
 		// Transfer timeout
-		Timeout int `json:"timeout" bson:"timeout"`
+		Timeout int `json:"timeout"`
 		// Number of times to retry on failure
-		Retry uint8 `json:"retry" bson:"retry"`
+		Retry uint8 `json:"retry"`
 		// How long to wait between attempts
-		RetryDelay time.Duration `json:"retry_delay" bson:"retry_delay"`
+		RetryDelay time.Duration `json:"retry_delay"`
 
 		// Staging operation timeout, enforced by the storage
-		StagingTimeout uint32 `json:"staging_timeout" bson:"staging_timeout"`
+		StagingTimeout uint32 `json:"staging_timeout"`
 		// How long should the storage keep the file on disk
-		PinLifetime uint32 `json:"pin_lifetime" bson:"pin_lifetime"`
+		PinLifetime uint32 `json:"pin_lifetime"`
 		// Source space token, for staging operations
-		SourceSpaceToken *string `json:"source_spacetoken" bson:"source_spacetoken"`
+		SourceSpaceToken *string `json:"source_spacetoken"`
 		// Destination space token, for the transfer
-		DestSpaceToken *string `json:"dest_spacetoken" bson:"dest_spacetoken"`
+		DestSpaceToken *string `json:"dest_spacetoken"`
 
 		// Checksum mode
-		ChecksumMode ChecksumMode `json:"checksum_mode" bson:"checksum_mode"`
+		ChecksumMode ChecksumMode `json:"checksum_mode"`
 
 		// Overwrite
-		Overwrite bool `json:"overwrite" bson:"overwrite"`
+		Overwrite bool `json:"overwrite"`
 
 		// If true, try UDT for GridFTP transfers
-		EnableUdt bool `json:"enable_udt" bson:"enable_udt"`
+		EnableUdt bool `json:"enable_udt"`
 		// If true, enable IPv6 for GridFTP transfers
-		EnableIpv6 bool `json:"enable_ipv6" bson:"enable_ipv6"`
+		EnableIpv6 bool `json:"enable_ipv6"`
 	}
 
 	// Transfer to be run by FTS
 	Transfer struct {
 		// Job to which this transfer belongs
-		JobID JobID `json:"job_id" bson:"job_id"`
+		JobID JobID `json:"job_id"`
 		// Transfer Id
-		TransferID `json:"transfer_id" bson:"transfer_id"`
+		TransferID `json:"transfer_id"`
 		// Retry index
-		Retry int `json:"retry" bson:"retry"`
+		Retry int `json:"retry"`
 
 		// Expiration time
-		ExpirationTime *time.Time `json:"expiration_time" bson:"expiration_time"`
+		ExpirationTime *time.Time `json:"expiration_time"`
 
 		// Source file
-		Source surl.SURL `json:"source" bson:"source"`
+		Source surl.SURL `json:"source"`
 		// Destination file
-		Destination surl.SURL `json:"destination" bson:"destination"`
+		Destination surl.SURL `json:"destination"`
 
 		// Activity share
 		Activity string
 
 		// File size
-		Filesize *int64 `json:"filesize" bson:"filesize"`
+		Filesize *int64 `json:"filesize"`
 		// File checksum
-		Checksum *Checksum `json:"checksum" bson:"checksum"`
+		Checksum *Checksum `json:"checksum"`
 
 		// Custom metadata
-		Metadata Metadata `json:"metadata" bson:"metadata"`
+		Metadata Metadata `json:"metadata"`
 
 		// Additional parameters for the transfer
-		Parameters TransferParameters `json:"params" bson:"params"`
+		Parameters TransferParameters `json:"params"`
 
 		// State info for when it is due
-		Status *TransferStatus `json:"status" bson:"status"`
+		Status *TransferStatus `json:"status"`
 	}
 )
 

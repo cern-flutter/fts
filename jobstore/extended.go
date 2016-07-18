@@ -26,6 +26,6 @@ type (
 		tasks.Job
 
 		// Stores the time the job enters a terminal state, so we can purge the database
-		FinishTime time.Time `json:"finish_time" bson:"finish_time`
+		FinishTime time.Time `json:"finish_time"`
 	}
 )

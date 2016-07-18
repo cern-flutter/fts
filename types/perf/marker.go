@@ -24,12 +24,12 @@ import (
 type (
 	// Marker holds data indicating the progress of a transfer
 	Marker struct {
-		Timestamp          time.Time        `json:"timestamp" bson:"timestamp"`
-		JobID              tasks.JobID      `json:"job_id" bson:"job_id"`
-		TransferID         tasks.TransferID `json:"transfer_id" bson:"transfer_id"`
-		SourceStorage      string           `json:"source_se" bson:"source_se"`
-		DestinationStorage string           `json:"dest_se" bson:"dest_se"`
-		Throughput         uint64           `json:"throughput" bson:"throughput"`
-		TransferredBytes   uint64           `json:"transferred" bson:"transferred"`
+		Timestamp          time.Time        `json:"timestamp"`
+		JobID              tasks.JobID      `json:"job_id"`
+		TransferID         tasks.TransferID `json:"transfer_id"`
+		SourceStorage      string           `json:"source_se"`
+		DestinationStorage string           `json:"dest_se"`
+		Throughput         uint64           `json:"throughput"`
+		TransferredBytes   uint64           `json:"transferred"`
 	}
 )

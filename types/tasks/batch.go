@@ -29,15 +29,15 @@ type (
 
 	// Batch contains a set of transfer that form a logical unit of work
 	Batch struct {
-		Type      BatchType   `json:"type" bson:"type"`
+		Type      BatchType   `json:"type"`
 		State     string      `json:"state"`
-		Transfers []*Transfer `json:"transfers" bson:"transfers"`
+		Transfers []*Transfer `json:"transfers"`
 
-		DelegationID string `json:"delegation_id" bson:"delegation_id"`
+		DelegationID string `json:"delegation_id"`
 
 		// Batches are scheduled using these fields as key
 		SourceSe, DestSe string
-		Vo               string `json:"vo" bson:"vo"`
+		Vo               string `json:"vo"`
 		Activity         string
 	}
 )

@@ -18,15 +18,15 @@ package cloud
 
 type (
 	DropboxCredential struct {
-		AppKey      string `json:"app_key" bson:"app_key"`
-		AppSecret   string `json:"app_secret" bson:"app_secret"`
-		AccessToken string `json:"token" bson:"token"`
+		AppKey      string `json:"app_key"`
+		AppSecret   string `json:"app_secret"`
+		AccessToken string `json:"token"`
 	}
 
 	S3Credential struct {
-		Storage   string `json:"storage" bson:"storage"`
-		SecretKey string `json:"secret_key" bson:"secret_key"`
-		AccessKey string `json:"access_key" bson:"access_key"`
-		Token     string `json:"token" bson:"token"`
+		Storage   string `json:"storage"`
+		SecretKey string `json:"secret_key"`
+		AccessKey string `json:"access_key"`
+		Token     string `json:"token"`
 	}
 )

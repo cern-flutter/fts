@@ -41,15 +41,15 @@ type (
 	}
 
 	serialProxy struct {
-		DelegationID string    `json:"delegation_id" bson:"delegation_id"`
-		NotAfter     time.Time `json:"not_after" bson:"not_after"`
-		Pem          string    `json:"pem" bson:"pem"`
+		DelegationID string    `json:"delegation_id"`
+		NotAfter     time.Time `json:"not_after"`
+		Pem          string    `json:"pem"`
 	}
 
 	serialRequest struct {
-		DelegationID string `json:"delegation_id" bson:"delegation_id"`
-		Request      string `json:"request" bson:"request"`
-		Key          string `json:"key" bson:"key"`
+		DelegationID string `json:"delegation_id"`
+		Request      string `json:"request"`
+		Key          string `json:"key"`
 	}
 
 	// Store stores X509 proxies and requests.
