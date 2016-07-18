@@ -19,7 +19,7 @@ flutter-tests:
     stage: test
     image: docker-ro.cern.ch/flutter-dev/build
     script:
-        - mkdir -p "$GOPATH/src/gitlab.cern.ch/flutter"
+        - rm -r "$GOPATH/src/gitlab.cern.ch/flutter/fts"
         - ln -sfv "$(pwd -P)" "$GOPATH/src/gitlab.cern.ch/flutter"
         - cd "$GOPATH/src/gitlab.cern.ch/flutter/fts"
         - make test 
