@@ -119,11 +119,17 @@ func (ts *Batch) Merge(b *Batch) (*Batch, error) {
 func (ts *Batch) splitSimple() []*Batch {
 	set := make([]*Batch, 0, len(ts.Transfers))
 	for _, transfer := range ts.Transfers {
+		if transfer.Activity == "" {
+			transfer.Activity = "default"
+		}
 		set = append(set, &Batch{
 			Type:         BatchSimple,
 			DelegationID: ts.DelegationID,
 			Transfers:    []*Transfer{transfer},
 			Vo:           ts.Vo,
+			SourceSe:     transfer.Source.GetStorageName(),
+			DestSe:       transfer.Destination.GetStorageName(),
+			Activity:     transfer.Activity,
 		})
 	}
 	return set
@@ -137,6 +143,9 @@ func (ts *Batch) splitBulk() []*Batch {
 	}
 	batches := make(map[key]*Batch)
 	for _, transfer := range ts.Transfers {
+		if transfer.Activity == "" {
+			transfer.Activity = "default"
+		}
 		sourceSe := transfer.Source.GetStorageName()
 		destSe := transfer.Destination.GetStorageName()
 		k := key{sourceSe, destSe, transfer.Activity}
@@ -181,7 +190,11 @@ func (ts *Batch) Normalize() []*Batch {
 	case BatchMultisource:
 		ts.SourceSe = ts.Transfers[0].Source.GetStorageName()
 		ts.DestSe = ts.Transfers[0].Destination.GetStorageName()
-		ts.Activity = ts.Transfers[0].Activity
+		if ts.Transfers[0].Activity != "" {
+			ts.Activity = ts.Transfers[0].Activity
+		} else {
+			ts.Activity = "default"
+		}
 	default:
 		log.Panic("Unexpected batch type: ", ts.Type)
 	}

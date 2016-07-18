@@ -88,7 +88,7 @@ func (c *GatewayRPC) Submit(r *http.Request, set *tasks.Batch, nBatches *int) er
 		if err != nil {
 			return err
 		}
-		log.Info("Submitted batch ", batch.GetID())
+		log.Infof("Submitted batch %s => %s (%s)", batch.SourceSe, batch.DestSe, batch.Activity)
 	}
 
 	return nil

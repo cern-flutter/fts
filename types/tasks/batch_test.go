@@ -234,3 +234,36 @@ func TestNormBulkSplit(t *testing.T) {
 		t.Fatal("Unexpected destination se")
 	}
 }
+
+// Call normalization with a single batch
+func TestNormalizeOne(t *testing.T) {
+	src1, _ := surl.Parse("mock://a/patch")
+	dst1, _ := surl.Parse("mock://b/path")
+
+	ts := &Batch{
+		Type:         BatchSimple,
+		DelegationID: "1234",
+		Transfers: []*Transfer{
+			{
+				JobID: "abcde", TransferID: "1234",
+				Source: *src1, Destination: *dst1,
+			},
+		},
+	}
+
+	normalized := ts.Normalize()
+	if len(normalized) != 1 {
+		t.Fatal("Expecting one single batch")
+	}
+
+	if !reflect.DeepEqual(ts.Transfers[0], normalized[0].Transfers[0]) {
+		t.Fatal("Bulks are different")
+	}
+
+	if normalized[0].SourceSe != "mock://a" {
+		t.Fatal("Unexpected source se")
+	}
+	if normalized[0].DestSe != "mock://b" {
+		t.Fatal("Unexpected destination se")
+	}
+}

@@ -76,3 +76,19 @@ func (s *SURL) UnmarshalJSON(data []byte) (err error) {
 	s.URL = *parsed
 	return
 }
+
+// UnmarshalBinary unserializes the URL into a binary string
+func (s *SURL) UnmarshalBinary(data []byte) error {
+	str := string(data)
+	parsed, err := url.Parse(str)
+	if err != nil {
+		return err
+	}
+	s.URL = *parsed
+	return nil
+}
+
+// MarshalBinary serializes the URL into a binary string
+func (s *SURL) MarshalBinary() ([]byte, error) {
+	return []byte(s.String()), nil
+}

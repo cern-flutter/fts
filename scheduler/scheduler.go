@@ -17,25 +17,22 @@
 package scheduler
 
 import (
-	"encoding/json"
-	"fmt"
-	log "github.com/Sirupsen/logrus"
-	"github.com/satori/go.uuid"
-	"gitlab.cern.ch/flutter/fts/config"
-	"gitlab.cern.ch/flutter/fts/types/tasks"
+	"gitlab.cern.ch/flutter/echelon"
 	"gitlab.cern.ch/flutter/stomp"
 )
 
 type (
-	// Scheduler wraps the scheduler status
+	// Scheduler data
 	Scheduler struct {
 		producer *stomp.Producer
 		consumer *stomp.Consumer
+
+		echelon *echelon.Echelon
 	}
 )
 
 // New creates a new scheduler
-func New(params stomp.ConnectionParameters) (*Scheduler, error) {
+func New(params stomp.ConnectionParameters, echelonDir string) (*Scheduler, error) {
 	var err error
 	sched := &Scheduler{}
 
@@ -45,6 +42,10 @@ func New(params stomp.ConnectionParameters) (*Scheduler, error) {
 	if sched.consumer, err = stomp.NewConsumer(params); err != nil {
 		return nil, err
 	}
+	sched.echelon = echelon.New(echelonDir, &SchedInfoProvider{})
+	if err = sched.echelon.Restore(); err != nil {
+		return nil, err
+	}
 	return sched, nil
 }
 
@@ -52,74 +53,5 @@ func New(params stomp.ConnectionParameters) (*Scheduler, error) {
 func (s *Scheduler) Close() {
 	s.consumer.Close()
 	s.producer.Close()
-}
-
-// Run the scheduler
-func (s *Scheduler) Run() error {
-	consumerId := fmt.Sprint("fts-scheduler-", uuid.NewV4().String())
-	taskChannel, errorChannel, err := s.consumer.Subscribe(
-		config.SchedulerQueue,
-		consumerId,
-		stomp.AckIndividual,
-	)
-	if err != nil {
-		return err
-	}
-
-	for {
-		select {
-		case msg, ok := <-taskChannel:
-			if !ok {
-				return nil
-			}
-			batch := tasks.Batch{}
-			if err = json.Unmarshal(msg.Body, &batch); err != nil {
-				msg.Nack()
-				log.WithError(err).Error("Could not parse batch")
-			}
-			msg.Ack()
-
-			// We are only interested on SUBMITTED batches
-			if batch.State == tasks.Submitted {
-				// This is an identity dummy scheduler, so forward to workers
-				log.WithField("batch", batch.GetID()).Info("Forwarding batch")
-				batch.State = tasks.Ready
-				body, err := json.Marshal(batch)
-				if err != nil {
-					return err
-				}
-
-				err = s.producer.Send(
-					config.TransferTopic,
-					string(body),
-					stomp.SendParams{
-						Persistent:  true,
-						ContentType: "application/json",
-					},
-				)
-				if err != nil {
-					return err
-				}
-			} else {
-				log.WithField("batch", batch.GetID()).Debug("Ignoring batch with state ", batch.State)
-			}
-		case error, ok := <-errorChannel:
-			if !ok {
-				return nil
-			}
-			log.WithError(error).Warn("Got an error from the subcription channel")
-		}
-	}
-}
-
-// Go runs the scheduler as a goroutine
-func (s *Scheduler) Go() <-chan error {
-	c := make(chan error)
-	go func() {
-		if err := s.Run(); err != nil {
-			c <- err
-		}
-		close(c)
-	}()
-	return c
+	s.echelon.Close()
 }

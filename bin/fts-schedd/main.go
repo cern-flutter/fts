@@ -54,17 +54,20 @@ var scheddCmd = &cobra.Command{
 					reconnectRetries = 0
 				}
 			},
-		})
+		}, viper.Get("schedd.dirq").(string))
 		if err != nil {
 			log.Fatal(err)
 		}
 		defer sched.Close()
-		scheddErrors := sched.Go()
+		consumerErrors := sched.GoConsumer()
+		producerErrors := sched.GoProducer()
 		log.Info("All subservices started")
 		for {
 			select {
-			case e := <-scheddErrors:
-				log.Fatal("Scheduler service failed with ", e)
+			case e := <-consumerErrors:
+				log.Fatal("Scheduler consumer failed with ", e)
+			case e := <-producerErrors:
+				log.Fatal("Scheduler producer failed with ", e)
 			}
 		}
 	},
@@ -74,6 +77,7 @@ var scheddCmd = &cobra.Command{
 func main() {
 	// Config file
 	configFile := scheddCmd.Flags().String("Config", "", "Use configuration from this file")
+	scheddCmd.Flags().String("EchelonDir", "/var/lib/fts/echelon", "Echelon persistency dir")
 
 	// Stomp flags
 	config.BindStompFlags(scheddCmd)
@@ -83,6 +87,7 @@ func main() {
 	scheddCmd.Flags().Bool("Debug", true, "Enable debugging")
 	viper.BindPFlag("schedd.log", scheddCmd.Flags().Lookup("Log"))
 	viper.BindPFlag("schedd.debug", scheddCmd.Flags().Lookup("Debug"))
+	viper.BindPFlag("schedd.dirq", scheddCmd.Flags().Lookup("EchelonDir"))
 
 	cobra.OnInitialize(func() {
 		if *configFile != "" {
