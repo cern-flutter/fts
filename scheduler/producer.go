@@ -17,13 +17,13 @@
 package scheduler
 
 import (
+	"encoding/json"
 	log "github.com/Sirupsen/logrus"
 	"gitlab.cern.ch/flutter/echelon"
 	"gitlab.cern.ch/flutter/fts/config"
 	"gitlab.cern.ch/flutter/fts/types/tasks"
 	"gitlab.cern.ch/flutter/stomp"
 	"time"
-	"encoding/json"
 )
 
 // Run the scheduler producer
@@ -35,18 +35,19 @@ func (s *Scheduler) RunProducer() error {
 		var err error
 		batch := &tasks.Batch{}
 		for err = s.echelon.Dequeue(batch); err == nil; err = s.echelon.Dequeue(batch) {
-			log.Info("Got batch ", batch.GetID())
+			l := log.WithField("batch", batch.GetID())
 
 			batch.State = tasks.Ready
 
 			if data, err := json.Marshal(batch); err != nil {
-				log.Error(err)
+				l.Error(err)
 				continue
 			} else if err = s.producer.Send(config.TransferTopic, string(data), sendParams); err != nil {
+				l.Error(err)
 				break
 			}
 			for _, t := range batch.Transfers {
-				log.Info("Scheduled ", t.JobID, "/", t.TransferID)
+				l.Info("Scheduled ", t.JobID, "/", t.TransferID)
 			}
 		}
 
