@@ -32,6 +32,7 @@ ENV GOPATH /go
 ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
 
 RUN mkdir -p "$GOPATH/src" "$GOPATH/bin"
+RUN mkdir -p "$GOPATH/src/gitlab.cern.ch/flutter/fts"
 
 # Mount points
-VOLUME ["/src"]
+VOLUME ["$GOPATH/src/gitlab.cern.ch/fts"]

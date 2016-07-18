@@ -3,7 +3,9 @@ CADIR=${HOME}/.dev-ca
 CERTDIR=${HOME}/.dev-cert
 DOCKER_PREFIX=docker.cern.ch/flutter-dev
 
-.PHONY: artifacts docker-all
+.PHONY: docker-all test-deps test
+
+all: build
 
 $(BUILDDIR):
 	mkdir -p $(BUILDDIR)
@@ -31,7 +33,9 @@ image-build:
 
 # Build binaries
 build: $(BUILDDIR)
-	docker ps -a | grep flutter-build || docker create --volume="$$PWD:/src" --name=flutter-build $(DOCKER_PREFIX)/build
+	docker ps -a | grep flutter-build || docker create --volume="$$PWD:/go/src/gitlab.cern.ch/flutter/fts" \
+		--name=flutter-build $(DOCKER_PREFIX)/build \
+		bash -c "cd /go/src/gitlab.cern.ch/flutter/fts; make binaries"
 	docker start -a flutter-build && docker cp "flutter-build:/go/bin" $(BUILDDIR)
 
 # Containers with the binaries
