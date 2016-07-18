@@ -18,7 +18,7 @@ package util
 
 import (
 	log "github.com/Sirupsen/logrus"
-	"github.com/Sirupsen/logrus/formatters/logstash"
+	logstash "github.com/bshuster-repo/logrus-logstash-hook"
 	"github.com/spf13/viper"
 	"os"
 )

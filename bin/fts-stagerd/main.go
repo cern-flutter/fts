@@ -16,6 +16,81 @@
 
 package main
 
-func main() {
+import (
+	log "github.com/Sirupsen/logrus"
+	"github.com/satori/go.uuid"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"gitlab.cern.ch/flutter/fts/config"
+	"gitlab.cern.ch/flutter/fts/sink"
+	"gitlab.cern.ch/flutter/fts/util"
+	"gitlab.cern.ch/flutter/stomp"
+	"time"
+)
 
+var stagerCmd = cobra.Command{
+	Use:   "fts-stagerd",
+	Short: "FTS Stager",
+	Run: func(cmd *cobra.Command, args []string) {
+		reconnectWait := viper.Get("stomp.reconnect.wait").(int)
+		reconnectMaxRetries := viper.Get("stomp.reconnect.retry").(int)
+		reconnectRetries := 0
+
+		stompParams := stomp.ConnectionParameters{
+			ClientId: "fts-stagerd-" + util.Hostname(),
+			Address:  viper.Get("stomp").(string),
+			Login:    viper.Get("stomp.login").(string),
+			Passcode: viper.Get("stomp.passcode").(string),
+			ConnectionLost: func(b *stomp.Broker) {
+				l := log.WithField("broker", b.RemoteAddr())
+				if reconnectRetries >= reconnectMaxRetries {
+					l.Panicf("Could not reconnect to the broker after %d attemps", reconnectRetries)
+				}
+				l.Warn("Lost connection with broker")
+				if err := b.Reconnect(); err != nil {
+					l.WithError(err).Errorf("Failed to reconnect, wait %d seconds", reconnectWait)
+					time.Sleep(time.Duration(reconnectWait) * time.Second)
+					reconnectRetries++
+				} else {
+					reconnectRetries = 0
+				}
+			},
+		}
+
+		if err := sink.Purge(stompParams, "Consumer.stager.fts.transfer", "stager-"+uuid.NewV4().String()); err != nil {
+			log.Fatal(err)
+		}
+	},
+}
+
+func main() {
+	// Config file
+	configFile := stagerCmd.Flags().String("Config", "", "Use configuration from this file")
+
+	// Stomp flags
+	config.BindStompFlags(&stagerCmd)
+
+	// Specific flags
+	stagerCmd.Flags().String("Log", "", "Log file")
+	stagerCmd.Flags().Bool("Debug", true, "Enable debugging")
+
+	viper.BindPFlag("stagerd.log", stagerCmd.Flags().Lookup("Log"))
+	viper.BindPFlag("stagerd.debug", stagerCmd.Flags().Lookup("Debug"))
+
+	cobra.OnInitialize(func() {
+		if *configFile != "" {
+			util.ReadConfigFile(*configFile)
+		}
+		logFile := viper.Get("stagerd.log").(string)
+		if logFile != "" {
+			util.RedirectLog(logFile)
+		}
+		if viper.Get("stagerd.debug").(bool) {
+			log.SetLevel(log.DebugLevel)
+		}
+	})
+
+	if err := stagerCmd.Execute(); err != nil {
+		log.Fatal(err)
+	}
 }
