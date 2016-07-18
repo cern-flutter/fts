@@ -13,15 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# FTS Scheduler container
+# FTS Optimizer container
 
 FROM docker.cern.ch/flutter-dev/base
 
 # Supervisor configuration
-COPY "docker/scheduler/supervisord.conf" "/etc/supervisor/conf.d/supervisord.conf"
+COPY "docker/store/supervisord.conf" "/etc/supervisor/conf.d/supervisord.conf"
 
 # Start supervisor
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
 
 # Copy required binaries
-ADD "artifacts/bin/fts-schedd" "/usr/bin/"
+ADD "artifacts/bin/fts-stored" "/usr/bin/"

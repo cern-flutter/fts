@@ -48,13 +48,28 @@ docker-sched: build
 docker-worker: build
 	docker build -t $(DOCKER_PREFIX)/worker -f docker/worker/Dockerfile .
 
+docker-optimizer: build
+	docker build -t $(DOCKER_PREFIX)/optimizer -f docker/optimizer/Dockerfile .
+
+docker-publisher: build
+	docker build -t $(DOCKER_PREFIX)/publisher -f docker/publisher/Dockerfile .
+
+docker-stager: build
+	docker build -t $(DOCKER_PREFIX)/stager -f docker/stager/Dockerfile .
+
+docker-store: build
+	docker build -t $(DOCKER_PREFIX)/store -f docker/store/Dockerfile .
+
 docker-db: build
 	docker build -t $(DOCKER_PREFIX)/db -f docker/database/Dockerfile .
 
 docker-broker: build
 	docker build -t $(DOCKER_PREFIX)/broker -f docker/broker/Dockerfile .
 
-docker-all: docker-broker docker-db docker-worker docker-sched docker-rest
+docker-all: docker-broker docker-db \
+	docker-rest docker-publisher docker-store \
+	docker-worker docker-stager \
+	docker-sched docker-optimizer
 
 # Development root CA
 ca: $(CADIR)/private/ca_key.pem

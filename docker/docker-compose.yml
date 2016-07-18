@@ -42,3 +42,31 @@ rest:
   volumes:
     - "${HOME}/.dev-cert:/etc/grid-security/localhost"
 
+optimizer:
+  image: docker.cern.ch/flutter-dev/optimizer
+  links:
+    - broker
+  env_file:
+    dev.env
+
+publisher:
+  image: docker.cern.ch/flutter-dev/publisher
+  links:
+    - broker
+  env_file:
+    dev.env
+
+stager:
+  image: docker.cern.ch/flutter-dev/stager
+  links:
+    - broker
+  env_file:
+    dev.env
+
+store:
+  image: docker.cern.ch/flutter-dev/store
+  links:
+    - database
+    - broker
+  env_file:
+    dev.env
