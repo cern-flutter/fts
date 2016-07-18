@@ -17,6 +17,8 @@
 package tasks
 
 import (
+	"gitlab.cern.ch/flutter/fts/types/surl"
+	"reflect"
 	"testing"
 )
 
@@ -46,12 +48,12 @@ func TestMerge(t *testing.T) {
 	ts1 := &Batch{
 		Type:         BatchBulk,
 		DelegationID: "1234",
-		Transfers:    []*Transfer{&Transfer{JobID: "abcde"}},
+		Transfers:    []*Transfer{{JobID: "abcde"}},
 	}
 	ts2 := &Batch{
 		Type:         BatchBulk,
 		DelegationID: "1234",
-		Transfers:    []*Transfer{&Transfer{JobID: "1234"}},
+		Transfers:    []*Transfer{{JobID: "1234"}},
 	}
 
 	var err error
@@ -77,38 +79,18 @@ func TestMerge(t *testing.T) {
 	}
 }
 
-// Test split a set that can not be split
-func TestBadSplit(t *testing.T) {
-	ts := &Batch{
-		Type:         BatchBulk,
-		DelegationID: "1234",
-		Transfers: []*Transfer{
-			&Transfer{JobID: "abcde"},
-			&Transfer{JobID: "12345"},
-		},
-	}
-
-	split := ts.Split()
-	if len(split) != 1 {
-		t.Fatal("Expecting a noop split")
-	}
-	if split[0] != ts {
-		t.Error("Unexpected transfer set")
-	}
-}
-
 // Test split a set that can be split
 func TestSplit(t *testing.T) {
 	ts := &Batch{
 		Type:         BatchSimple,
 		DelegationID: "1234",
 		Transfers: []*Transfer{
-			&Transfer{JobID: "abcde"},
-			&Transfer{JobID: "12345"},
+			{JobID: "abcde"},
+			{JobID: "12345"},
 		},
 	}
 
-	split := ts.Split()
+	split := ts.splitSimple()
 	if len(split) != 2 {
 		t.Fatal("Expecting two transfer sets")
 	}
@@ -132,13 +114,123 @@ func TestGetId(t *testing.T) {
 		Type:         BatchSimple,
 		DelegationID: "1234",
 		Transfers: []*Transfer{
-			&Transfer{JobID: "abcde"},
-			&Transfer{JobID: "12345"},
+			{JobID: "abcde"},
+			{JobID: "12345"},
 		},
 	}
 	if id := ts.GetID(); id == "" {
 		t.Fatal("Empty Id for the batch")
 	} else {
 		t.Log(id)
+	}
+}
+
+// Test normalization with a simple batch
+func TestNormSimple(t *testing.T) {
+	ts := &Batch{
+		Type:         BatchSimple,
+		DelegationID: "1234",
+		Transfers: []*Transfer{
+			{JobID: "abcde"},
+			{JobID: "12345"},
+		},
+	}
+
+	normalized := ts.Normalize()
+	if len(normalized) != 2 {
+		t.Fatal("Expecting 2 batches, got", len(normalized))
+	}
+
+	for _, batch := range normalized {
+		if len(batch.Transfers) != 1 {
+			t.Error("Expecting 1 transfer per batch, got", len(batch.Transfers))
+		}
+	}
+}
+
+// Test normalization of a bulk where both transfers can be scheduled together
+func TestNormBulkConsistent(t *testing.T) {
+	src1, _ := surl.Parse("mock://a/patch")
+	dst1, _ := surl.Parse("mock://b/path")
+	src2, _ := surl.Parse("mock://a/patch2")
+	dst2, _ := surl.Parse("mock://b/path2")
+
+	ts := &Batch{
+		Type:         BatchBulk,
+		DelegationID: "1234",
+		Transfers: []*Transfer{
+			{
+				JobID: "abcde", TransferID: "1234",
+				Source: *src1, Destination: *dst1,
+			},
+			{
+				JobID: "abcde", TransferID: "1234",
+				Source: *src2, Destination: *dst2,
+			},
+		},
+	}
+
+	normalized := ts.Normalize()
+	if len(normalized) != 1 {
+		t.Fatal("Expecting the bulk to remain together")
+	}
+
+	if !reflect.DeepEqual(ts.Transfers[0], normalized[0].Transfers[0]) {
+		t.Fatal("Bulks are different")
+	}
+
+	if normalized[0].SourceSe != "mock://a" {
+		t.Fatal("Unexpected source se")
+	}
+	if normalized[0].DestSe != "mock://b" {
+		t.Fatal("Unexpected destination se")
+	}
+}
+
+// Test normalization of a bulk where both transfers can not be scheduled together
+func TestNormBulkSplit(t *testing.T) {
+	src1, _ := surl.Parse("mock://a/patch")
+	dst1, _ := surl.Parse("mock://b/path")
+	src2, _ := surl.Parse("mock://c/patch2")
+	dst2, _ := surl.Parse("mock://d/path2")
+
+	ts := &Batch{
+		Type:         BatchBulk,
+		DelegationID: "1234",
+		Transfers: []*Transfer{
+			{
+				JobID: "abcde", TransferID: "1234",
+				Source: *src1, Destination: *dst1,
+			},
+			{
+				JobID: "abcde", TransferID: "1234",
+				Source: *src2, Destination: *dst2,
+			},
+		},
+	}
+
+	normalized := ts.Normalize()
+	if len(normalized) != 2 {
+		t.Fatal("Expecting the bulk to be split together")
+	}
+
+	if !reflect.DeepEqual(ts.Transfers[0], normalized[0].Transfers[0]) {
+		t.Fatal("Bulks are different")
+	}
+	if !reflect.DeepEqual(ts.Transfers[1], normalized[1].Transfers[0]) {
+		t.Fatal("Bulks are different")
+	}
+
+	if normalized[0].SourceSe != "mock://a" {
+		t.Fatal("Unexpected source se")
+	}
+	if normalized[0].DestSe != "mock://b" {
+		t.Fatal("Unexpected destination se")
+	}
+	if normalized[1].SourceSe != "mock://c" {
+		t.Fatal("Unexpected source se")
+	}
+	if normalized[1].DestSe != "mock://d" {
+		t.Fatal("Unexpected destination se")
 	}
 }

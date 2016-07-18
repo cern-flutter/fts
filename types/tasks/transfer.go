@@ -88,6 +88,9 @@ type (
 		// Destination file
 		Destination surl.SURL `json:"destination" bson:"destination"`
 
+		// Activity share
+		Activity string
+
 		// File size
 		Filesize *int64 `json:"filesize" bson:"filesize"`
 		// File checksum

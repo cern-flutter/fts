@@ -20,6 +20,7 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
+	log "github.com/Sirupsen/logrus"
 )
 
 type (
@@ -28,11 +29,16 @@ type (
 
 	// Batch contains a set of transfer that form a logical unit of work
 	Batch struct {
-		Type         BatchType   `json:"type" bson:"type"`
-		State        string      `json:"state"`
-		Transfers    []*Transfer `json:"transfers" bson:"transfers"`
-		DelegationID string      `json:"delegation_id" bson:"delegation_id"`
-		Vo           string      `json:"vo" bson:"vo"`
+		Type      BatchType   `json:"type" bson:"type"`
+		State     string      `json:"state"`
+		Transfers []*Transfer `json:"transfers" bson:"transfers"`
+
+		DelegationID string `json:"delegation_id" bson:"delegation_id"`
+
+		// Batches are scheduled using these fields as key
+		SourceSe, DestSe string
+		Vo               string `json:"vo" bson:"vo"`
+		Activity         string
 	}
 )
 
@@ -52,6 +58,8 @@ var (
 	ErrEmptyTransferSet = errors.New("Empty batch")
 	// ErrCannotMerge is returned when the two batches can not be merged
 	ErrCannotMerge = errors.New("Batches can not be merged")
+	// ErrMissingInformation is returned when there are missing fields required for the batch to be routed
+	ErrMissingInformation = errors.New("Missing fields")
 )
 
 // Validate checks if a batch is properly defined
@@ -59,12 +67,26 @@ func (ts *Batch) Validate() error {
 	if len(ts.Transfers) == 0 {
 		return ErrEmptyTransferSet
 	}
+	if ts.SourceSe == "" || ts.DestSe == "" || ts.Vo == "" || ts.Activity == "" {
+		return ErrMissingInformation
+	}
 	for _, t := range ts.Transfers {
 		if err := t.Validate(); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// GetID gets a unique id associated to the batch
+func (ts *Batch) GetID() string {
+	hash := md5.New()
+	for _, transfer := range ts.Transfers {
+		hash.Write([]byte(transfer.TransferID))
+	}
+	var sum []byte
+	sum = hash.Sum(sum)
+	return fmt.Sprintf("%x", sum)
 }
 
 // Merge returns a new TransferSet merging b into ts
@@ -76,22 +98,25 @@ func (ts *Batch) Merge(b *Batch) (*Batch, error) {
 	if ts.DelegationID != b.DelegationID {
 		return nil, ErrCannotMerge
 	}
+	if ts.SourceSe != b.SourceSe || ts.DestSe != b.DestSe || ts.Vo != b.Vo || ts.Activity != b.Activity {
+		return nil, ErrCannotMerge
+	}
 
 	newTs := &Batch{
 		Type:         BatchBulk,
 		DelegationID: ts.DelegationID,
 		Vo:           ts.Vo,
+		SourceSe:     ts.SourceSe,
+		DestSe:       ts.DestSe,
+		Activity:     ts.Activity,
 	}
 	newTs.Transfers = append(newTs.Transfers, ts.Transfers...)
 	newTs.Transfers = append(newTs.Transfers, b.Transfers...)
 	return newTs, nil
 }
 
-// Split splits one batch into multiple ones, if possible
-func (ts *Batch) Split() []*Batch {
-	if ts.Type != BatchSimple {
-		return []*Batch{ts}
-	}
+// splitSimple splits one batch into multiple ones, if possible
+func (ts *Batch) splitSimple() []*Batch {
 	set := make([]*Batch, 0, len(ts.Transfers))
 	for _, transfer := range ts.Transfers {
 		set = append(set, &Batch{
@@ -104,13 +129,62 @@ func (ts *Batch) Split() []*Batch {
 	return set
 }
 
-// GetID gets a unique Id associated to the batch
-func (ts *Batch) GetID() string {
-	hash := md5.New()
-	for _, transfer := range ts.Transfers {
-		hash.Write([]byte(transfer.TransferID))
+// splitBulk splits one bulk batch into as many as necessary, so each one apply only to a
+// source, destination, vo and activity
+func (ts *Batch) splitBulk() []*Batch {
+	type key struct {
+		source, dest, activity string
 	}
-	var sum []byte
-	sum = hash.Sum(sum)
-	return fmt.Sprintf("%x", sum)
+	batches := make(map[key]*Batch)
+	for _, transfer := range ts.Transfers {
+		sourceSe := transfer.Source.GetStorageName()
+		destSe := transfer.Destination.GetStorageName()
+		k := key{sourceSe, destSe, transfer.Activity}
+		batch := batches[k]
+
+		if batch == nil {
+			batch = &Batch{
+				Type:         BatchBulk,
+				State:        ts.State,
+				Transfers:    make([]*Transfer, 0),
+				DelegationID: ts.DelegationID,
+				SourceSe:     transfer.Source.GetStorageName(),
+				DestSe:       transfer.Destination.GetStorageName(),
+				Vo:           ts.Vo,
+				Activity:     transfer.Activity,
+			}
+		}
+		batch.Transfers = append(batch.Transfers, transfer)
+		batches[k] = batch
+	}
+
+	slice := make([]*Batch, 0, len(batches))
+	for _, batch := range batches {
+		slice = append(slice, batch)
+	}
+
+	return slice
+}
+
+// Normalize splits a batch into as many as necessary to keep consistent routing
+// This is, all transfers within a batch must be scheduled together, so they must
+// apply to the same source, destination, vo and activity
+func (ts *Batch) Normalize() []*Batch {
+	switch ts.Type {
+	case BatchSimple:
+		return ts.splitSimple()
+	case BatchBulk:
+		return ts.splitBulk()
+	// For both multihop and multisources, we care about the first item on the batch
+	case BatchMultihop:
+		fallthrough
+	case BatchMultisource:
+		ts.SourceSe = ts.Transfers[0].Source.GetStorageName()
+		ts.DestSe = ts.Transfers[0].Destination.GetStorageName()
+		ts.Activity = ts.Transfers[0].Activity
+	default:
+		log.Panic("Unexpected batch type: ", ts.Type)
+	}
+
+	return []*Batch{ts}
 }
