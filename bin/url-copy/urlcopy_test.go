@@ -149,29 +149,32 @@ func TestSimpleTransfer(t *testing.T) {
 	end := ConsumeEndMessages(t)
 
 	if len(start.Transfers) != 1 {
-		t.Errorf("Expecting 1 start message, got %d", len(start.Transfers))
+		t.Error("Expecting 1 start message, got", len(start.Transfers))
 		return
 	}
 	if len(end.Transfers) != 1 {
-		t.Errorf("Expecting 1 end message, got %d", len(end.Transfers))
+		t.Error("Expecting 1 end message, got", len(end.Transfers))
 		return
 	}
 
 	if start.Transfers[0].JobID != transfer.JobID || start.Transfers[0].TransferID != transfer.TransferID {
-		t.Errorf("Received transfer on start message does not match submitted")
+		t.Error("Received transfer on start message does not match submitted")
 		t.Log(start)
 		t.Log(transfer)
 	}
 	if end.Transfers[0].JobID != transfer.JobID || end.Transfers[0].TransferID != transfer.TransferID {
-		t.Errorf("Received transfer on end message does not match submitted")
+		t.Error("Received transfer on end message does not match submitted")
 		t.Log(end)
 		t.Log(transfer)
 	}
+	if end.Transfers[0].Status.State != tasks.TransferFinished {
+		t.Error("Expecting Finished, got", end.Transfers[0].Status.State)
+	}
 	if end.Transfers[0].Status.Error != nil {
-		t.Errorf("Expecting success, got %s", end.Transfers[0].Status.Error.Description)
+		t.Error("Expecting success, got", end.Transfers[0].Status.Error.Description)
 	}
 	if end.Transfers[0].Status.Stats.TransferredBytes != 10 {
-		t.Errorf("Expecting filesize to be reported 10, got %d", end.Transfers[0].Status.Stats.TransferredBytes)
+		t.Error("Expecting filesize to be reported 10, got", end.Transfers[0].Status.Stats.TransferredBytes)
 	}
 }
 
@@ -196,22 +199,26 @@ func TestPanic(t *testing.T) {
 	end := ConsumeEndMessages(t)
 
 	if len(end.Transfers) != 1 {
-		t.Errorf("Expecting 1 end message, got %d", len(end.Transfers))
+		t.Error("Expecting 1 end message, got", len(end.Transfers))
 		return
 	}
 
 	if end.Transfers[0].JobID != transfer.JobID || end.Transfers[0].TransferID != transfer.TransferID {
-		t.Errorf("Received transfer on end message does not match submitted")
+		t.Error("Received transfer on end message does not match submitted")
 		t.Log(end)
 		t.Log(transfer)
 	}
 
+	if end.Transfers[0].Status.State != tasks.TransferFailed {
+		t.Error("Expecting Failed, got", end.Transfers[0].Status.State)
+	}
+
 	if end.Transfers[0].Status.Error == nil {
-		t.Errorf("Expecting an error, got none")
+		t.Error("Expecting an error, got none")
 	} else if end.Transfers[0].Status.Error.Code != syscall.EINTR {
-		t.Errorf("Expecting EINTR, got %d", end.Transfers[0].Status.Error.Code)
+		t.Error("Expecting EINTR, got", end.Transfers[0].Status.Error.Code)
 	} else if end.Transfers[0].Status.Error.Description != "TEST PANIC MESSAGE" {
-		t.Errorf("Unexpected error message, got %s", end.Transfers[0].Status.Error.Description)
+		t.Error("Unexpected error message, got", end.Transfers[0].Status.Error.Description)
 	}
 }
 
@@ -242,29 +249,33 @@ func TestCancel(t *testing.T) {
 	end := ConsumeEndMessages(t)
 
 	if len(start.Transfers) != 1 {
-		t.Errorf("Expecting 1 start message, got %d", len(start.Transfers))
+		t.Error("Expecting 1 start message, got", len(start.Transfers))
 		return
 	}
 	if len(end.Transfers) != 1 {
-		t.Errorf("Expecting 1 end message, got %d", len(end.Transfers))
+		t.Error("Expecting 1 end message, got", len(end.Transfers))
 		return
 	}
 
+	if end.Transfers[0].Status.State != tasks.TransferCanceled {
+		t.Error("Expecting Canceled, got", end.Transfers[0].Status.State)
+	}
+
 	if start.Transfers[0].JobID != transfer.JobID || start.Transfers[0].TransferID != transfer.TransferID {
-		t.Errorf("Received transfer on start message does not match submitted")
+		t.Error("Received transfer on start message does not match submitted")
 		t.Log(start)
 		t.Log(transfer)
 	}
 	if end.Transfers[0].JobID != transfer.JobID || end.Transfers[0].TransferID != transfer.TransferID {
-		t.Errorf("Received transfer on end message does not match submitted")
+		t.Error("Received transfer on end message does not match submitted")
 		t.Log(end)
 		t.Log(transfer)
 	}
 	if end.Transfers[0].Status.Error == nil {
-		t.Errorf("Expecting an error, got success")
+		t.Error("Expecting an error, got success")
 		return
 	} else if end.Transfers[0].Status.Error.Code != syscall.ECANCELED {
-		t.Errorf("Expecting ECANCELED, got %d", end.Transfers[0].Status.Error.Code)
+		t.Error("Expecting ECANCELED, got", end.Transfers[0].Status.Error.Code)
 	}
 }
 
@@ -295,28 +306,31 @@ func TestTimeout(t *testing.T) {
 	end := ConsumeEndMessages(t)
 
 	if len(start.Transfers) != 1 {
-		t.Errorf("Expecting 1 start message, got %d", len(start.Transfers))
+		t.Error("Expecting 1 start message, got", len(start.Transfers))
 		return
 	}
 	if len(end.Transfers) != 1 {
-		t.Errorf("Expecting 1 end message, got %d", len(end.Transfers))
+		t.Error("Expecting 1 end message, got", len(end.Transfers))
 		return
 	}
 
 	if start.Transfers[0].JobID != transfer.JobID || start.Transfers[0].TransferID != transfer.TransferID {
-		t.Errorf("Received transfer on start message does not match submitted")
+		t.Error("Received transfer on start message does not match submitted")
 		t.Log(start)
 		t.Log(transfer)
 	}
 	if end.Transfers[0].JobID != transfer.JobID || end.Transfers[0].TransferID != transfer.TransferID {
-		t.Errorf("Received transfer on end message does not match submitted")
+		t.Error("Received transfer on end message does not match submitted")
 		t.Log(end)
 		t.Log(transfer)
 	}
+	if end.Transfers[0].Status.State != tasks.TransferFailed {
+		t.Error("Expecting Failed, got", end.Transfers[0].Status.State)
+	}
 	if end.Transfers[0].Status.Error == nil {
-		t.Errorf("Expecting an error, got success")
+		t.Error("Expecting an error, got success")
 	} else if end.Transfers[0].Status.Error.Code != syscall.ETIMEDOUT {
-		t.Errorf("Expecting ETIMEDOUT, got %d", end.Transfers[0].Status.Error.Code)
+		t.Error("Expecting ETIMEDOUT, got", end.Transfers[0].Status.Error.Code)
 	}
 }
 
@@ -349,28 +363,35 @@ func TestMultipleSimple(t *testing.T) {
 	end := ConsumeEndMessages(t)
 
 	if len(start.Transfers) != 2 {
-		t.Errorf("Expecting 2 start message, got %d", len(start.Transfers))
+		t.Error("Expecting 2 start message, got", len(start.Transfers))
 		return
 	}
 	if len(end.Transfers) != 2 {
-		t.Errorf("Expecting 2 end message, got %d", len(end.Transfers))
+		t.Error("Expecting 2 end message, got", len(end.Transfers))
 		return
 	}
 
+	if end.Transfers[0].Status.State != tasks.TransferFinished {
+		t.Error("Expecting Finished, got", end.Transfers[0].Status.State)
+	}
+	if end.Transfers[1].Status.State != tasks.TransferFinished {
+		t.Error("Expecting Finished, got", end.Transfers[1].Status.State)
+	}
+
 	if end.Transfers[0].Status.Error != nil {
-		t.Errorf("First transfer expected success, got %s", end.Transfers[0].Status.Error.Description)
+		t.Error("First transfer expected success, got", end.Transfers[0].Status.Error.Description)
 		return
 	}
 	if end.Transfers[1].Status.Error != nil {
-		t.Errorf("Second transfer expected success, got %s", end.Transfers[1].Status.Error.Description)
+		t.Error("Second transfer expected success, got", end.Transfers[1].Status.Error.Description)
 		return
 	}
 
 	if end.Transfers[0].Status.Stats.TransferredBytes != 10 {
-		t.Errorf("File size for transfer 1 does not match. Got %d", end.Transfers[0].Status.Stats.TransferredBytes)
+		t.Error("File size for transfer 1 does not match. Got", end.Transfers[0].Status.Stats.TransferredBytes)
 	}
 	if end.Transfers[1].Status.Stats.TransferredBytes != 42 {
-		t.Errorf("File size for transfer 2 does not match. Got %d", end.Transfers[1].Status.Stats.TransferredBytes)
+		t.Error("File size for transfer 2 does not match. Got", end.Transfers[1].Status.Stats.TransferredBytes)
 	}
 }
 
@@ -408,21 +429,28 @@ func TestMultipleCancel(t *testing.T) {
 	end := ConsumeEndMessages(t)
 
 	if len(start.Transfers) != 2 {
-		t.Errorf("Expecting 2 start message, got %d", len(start.Transfers))
+		t.Error("Expecting 2 start message, got", len(start.Transfers))
 		return
 	}
 	if len(end.Transfers) != 2 {
-		t.Errorf("Expecting 2 end message, got %d", len(end.Transfers))
+		t.Error("Expecting 2 end message, got", len(end.Transfers))
 		return
 	}
 
+	if end.Transfers[0].Status.State != tasks.TransferFinished {
+		t.Error("Expecting Finished, got", end.Transfers[0].Status.State)
+	}
+	if end.Transfers[1].Status.State != tasks.TransferCanceled {
+		t.Error("Expecting Canceled, got", end.Transfers[1].Status.State)
+	}
+
 	if end.Transfers[0].Status.Error != nil {
-		t.Errorf("First transfer expecting success, got %s", end.Transfers[0].Status.Error.Description)
+		t.Error("First transfer expecting success, got", end.Transfers[0].Status.Error.Description)
 	}
 	if end.Transfers[1].Status.Error == nil {
-		t.Errorf("Second transfer expecting failure, got success")
+		t.Error("Second transfer expecting failure, got success")
 	} else if end.Transfers[1].Status.Error.Code != syscall.ECANCELED {
-		t.Errorf("Second transfer expecting ECANCELED, got %d", end.Transfers[1].Status.Error.Code)
+		t.Error("Second transfer expecting ECANCELED, got", end.Transfers[1].Status.Error.Code)
 	}
 }
 
@@ -460,21 +488,28 @@ func TestMultiplePanic(t *testing.T) {
 	end := ConsumeEndMessages(t)
 
 	if len(start.Transfers) != 2 {
-		t.Errorf("Expecting 2 start message, got %d", len(start.Transfers))
+		t.Error("Expecting 2 start message, got", len(start.Transfers))
 		return
 	}
 	if len(end.Transfers) != 2 {
-		t.Errorf("Expecting 2 end message, got %d", len(end.Transfers))
+		t.Error("Expecting 2 end message, got", len(end.Transfers))
 		return
 	}
 
+	if end.Transfers[0].Status.State != tasks.TransferFinished {
+		t.Error("Expecting Finished, got", end.Transfers[0].Status.State)
+	}
+	if end.Transfers[1].Status.State != tasks.TransferFailed {
+		t.Error("Expecting Failed, got", end.Transfers[1].Status.State)
+	}
+
 	if end.Transfers[0].Status.Error != nil {
-		t.Errorf("First transfer expecting success, got %s", end.Transfers[0].Status.Error.Description)
+		t.Error("First transfer expecting success, got", end.Transfers[0].Status.Error.Description)
 	}
 	if end.Transfers[1].Status.Error == nil {
-		t.Errorf("Second transfer expecting failure, got success")
+		t.Error("Second transfer expecting failure, got success")
 	} else if end.Transfers[1].Status.Error.Code != syscall.EINTR {
-		t.Errorf("Second transfer expecting EINTR, got %d", end.Transfers[1].Status.Error.Code)
+		t.Error("Second transfer expecting EINTR, got", end.Transfers[1].Status.Error.Code)
 	}
 }
 
@@ -507,24 +542,31 @@ func TestMultiHop(t *testing.T) {
 	end := ConsumeEndMessages(t)
 
 	if len(start.Transfers) != 2 {
-		t.Errorf("Expecting 2 start message, got %d", len(start.Transfers))
+		t.Error("Expecting 2 start message, got", len(start.Transfers))
 		t.Log(start)
 		return
 	}
 	if len(end.Transfers) != 2 {
-		t.Errorf("Expecting 2 end message, got %d", len(end.Transfers))
+		t.Error("Expecting 2 end message, got", len(end.Transfers))
 		t.Log(end)
 		return
 	}
 
+	if end.Transfers[0].Status.State != tasks.TransferFailed {
+		t.Error("Expecting Failed, got", end.Transfers[0].Status.State)
+	}
+	if end.Transfers[1].Status.State != tasks.TransferFailed {
+		t.Error("Expecting Failed, got", end.Transfers[1].Status.State)
+	}
+
 	if end.Transfers[0].Status.Error == nil {
-		t.Errorf("First transfer expecting failure, got success")
+		t.Error("First transfer expecting failure, got success")
 	} else if end.Transfers[0].Status.Error.Code != syscall.ENOENT {
-		t.Errorf("First transfer expecting ENOENT, got %d instead", end.Transfers[0].Status.Error.Code)
+		t.Error("First transfer expecting ENOENT, got", end.Transfers[0].Status.Error.Code)
 	}
 	if end.Transfers[1].Status.Error == nil {
-		t.Errorf("Second transfer expecting failure, got success")
+		t.Error("Second transfer expecting failure, got success")
 	} else if end.Transfers[1].Status.Error.Code != syscall.ECANCELED {
-		t.Errorf("Second transfer expecting ECANCELED, got %d instead", end.Transfers[0].Status.Error.Code)
+		t.Error("Second transfer expecting ECANCELED, got", end.Transfers[0].Status.Error.Code)
 	}
 }

@@ -44,7 +44,6 @@ const (
 	TransferStaging       = TransferState("Staging")
 	TransferStarted       = TransferState("Started")
 	TransferSubmitted     = TransferState("Submitted")
-	TransferReady         = TransferState("Ready")
 	TransferActive        = TransferState("Active")
 	TransferFinished      = TransferState("Finished")
 	TransferFailed        = TransferState("Failed")

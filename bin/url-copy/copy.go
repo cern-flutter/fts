@@ -323,14 +323,19 @@ func (copy *urlCopy) runTransfer(transfer *tasks.Transfer) {
 // This could be due to external cancellation, or multihop failures.
 func (copy *urlCopy) setTerminalForRemaining() {
 	var description string
+	var state tasks.TransferState
+
 	if copy.multihopFailed {
 		description = "Transfer canceled because a previous hop failed"
+		state = tasks.TransferFailed
 	} else {
 		description = "Transfer canceled"
+		state = tasks.TransferCanceled
 	}
 
 	for transfer := copy.next(); transfer != nil; transfer = copy.next() {
 		transfer.Status = &tasks.TransferStatus{
+			State: state,
 			Error: &tasks.TransferError{
 				Scope:       tasks.ScopeTransfer,
 				Code:        syscall.ECANCELED,
@@ -350,7 +355,11 @@ func (copy *urlCopy) Run() {
 		copy.runTransfer(copy.transfer)
 
 		if copy.transfer.Status.Error != nil {
-			copy.transfer.Status.State = tasks.TransferFailed
+			if copy.transfer.Status.Error.Code == syscall.ECANCELED {
+				copy.transfer.Status.State = tasks.TransferCanceled
+			} else {
+				copy.transfer.Status.State = tasks.TransferFailed
+			}
 			if copy.transfer.Status.Error.Recoverable {
 				log.Errorf("Recoverable error: [%d] %s",
 					copy.transfer.Status.Error.Code, copy.transfer.Status.Error.Description)
@@ -392,10 +401,12 @@ func (copy *urlCopy) Panic(format string, args ...interface{}) {
 	}
 	// Not run yet
 	for transfer := copy.next(); transfer != nil; transfer = copy.next() {
+		transfer.Status.State = tasks.TransferFailed
 		transfer.Status.Error = error
 	}
 	// The one running
 	if copy.transfer != nil {
+		copy.transfer.Status.State = tasks.TransferFailed
 		copy.transfer.Status.Error = error
 	}
 	copy.reportBatchEnd()
