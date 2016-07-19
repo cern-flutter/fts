@@ -570,3 +570,165 @@ func TestMultiHop(t *testing.T) {
 		t.Error("Second transfer expecting ECANCELED, got", end.Transfers[0].Status.Error.Code)
 	}
 }
+
+// Test a multihop transfer. The first succeeds, but the second should be pushed to the queue by the scheduler.
+func TestMultiHop2(t *testing.T) {
+	transfer1 := &tasks.Transfer{
+		JobID:       "d025fb26-2279-11e6-a607-02163e006dd0",
+		TransferID:  "e0ccca86-2279-11e6-9c7b-02163e006dd0",
+		Source:      surlHelper("mock://host/path?size=10"),
+		Destination: surlHelper("mock://host/path?size_post=10&time=2"),
+	}
+	transfer2 := &tasks.Transfer{
+		JobID:       "d025fb26-2279-11e6-a607-02163e006dd0",
+		TransferID:  "1e97ce14-227b-11e6-81e2-02163e006dd0",
+		Source:      surlHelper("mock://host/path?size=10"),
+		Destination: surlHelper("mock://host/path?size_post=10&time=2"),
+	}
+
+	task := &tasks.Batch{
+		Type:      tasks.BatchMultihop,
+		Transfers: []*tasks.Transfer{transfer1, transfer2},
+	}
+
+	path := Serialize(t, task)
+	copy := newURLCopy(path)
+	copy.Run()
+
+	start := ConsumeStartMessages(t)
+	end := ConsumeEndMessages(t)
+
+	if len(start.Transfers) != 2 {
+		t.Error("Expecting 2 start message, got", len(start.Transfers))
+		t.Log(start)
+		return
+	}
+	if len(end.Transfers) != 2 {
+		t.Error("Expecting 2 end message, got", len(end.Transfers))
+		t.Log(end)
+		return
+	}
+
+	if end.Transfers[0].Status.State != tasks.TransferFinished {
+		t.Error("Expecting Finished, got", end.Transfers[0].Status.State)
+	}
+	if end.Transfers[1].Status.State != tasks.TransferOnHold {
+		t.Error("Expecting On Hold, got", end.Transfers[1].Status.State)
+	}
+
+	if end.Transfers[0].Status.Error != nil {
+		t.Error("First transfer expecting success, got", end.Transfers[0].Status.Error)
+	}
+	if end.Transfers[1].Status.Error != nil {
+		t.Error("Second transfer expecting no error, got", end.Transfers[1].Status.Error)
+	}
+}
+
+// Test a multiple source batch
+// It is not up to url copy to run the remaining options
+func TestMultisources(t *testing.T) {
+	transfer1 := &tasks.Transfer{
+		JobID:       "d025fb26-2279-11e6-a607-02163e006dd0",
+		TransferID:  "e0ccca86-2279-11e6-9c7b-02163e006dd0",
+		Source:      surlHelper("mock://host/path?size=10&errno=2"),
+		Destination: surlHelper("mock://host/path?size_post=10&time=2"),
+	}
+	transfer2 := &tasks.Transfer{
+		JobID:       "d025fb26-2279-11e6-a607-02163e006dd0",
+		TransferID:  "1e97ce14-227b-11e6-81e2-02163e006dd0",
+		Source:      surlHelper("mock://host/path?size=10"),
+		Destination: surlHelper("mock://host/path?size_post=10&time=2"),
+	}
+
+	task := &tasks.Batch{
+		Type:      tasks.BatchMultisource,
+		Transfers: []*tasks.Transfer{transfer1, transfer2},
+	}
+
+	path := Serialize(t, task)
+	copy := newURLCopy(path)
+	copy.Run()
+
+	start := ConsumeStartMessages(t)
+	end := ConsumeEndMessages(t)
+
+	if len(start.Transfers) != 2 {
+		t.Error("Expecting 2 start message, got", len(start.Transfers))
+		t.Log(start)
+		return
+	}
+	if len(end.Transfers) != 2 {
+		t.Error("Expecting 2 end message, got", len(end.Transfers))
+		t.Log(end)
+		return
+	}
+
+	if end.Transfers[0].Status.State != tasks.TransferFailed {
+		t.Error("Expecting Failed, got", end.Transfers[0].Status.State)
+	}
+	if end.Transfers[1].Status.State != tasks.TransferOnHold {
+		t.Error("Expecting On Hold, got", end.Transfers[1].Status.State)
+	}
+
+	if end.Transfers[0].Status.Error == nil {
+		t.Error("First transfer expecting failure, got success")
+	} else if end.Transfers[0].Status.Error.Code != syscall.ENOENT {
+		t.Error("First transfer expecting ENOENT, got", end.Transfers[0].Status.Error.Code)
+	}
+	if end.Transfers[1].Status.Error != nil {
+		t.Error("Second transfer expecting no failure, got", end.Transfers[1].Status.Error)
+	}
+}
+
+// Test a multiple source batch where the current step succeeds
+func TestMultisources2(t *testing.T) {
+	transfer1 := &tasks.Transfer{
+		JobID:       "d025fb26-2279-11e6-a607-02163e006dd0",
+		TransferID:  "e0ccca86-2279-11e6-9c7b-02163e006dd0",
+		Source:      surlHelper("mock://host/path?size=10"),
+		Destination: surlHelper("mock://host/path?size_post=10&time=2"),
+	}
+	transfer2 := &tasks.Transfer{
+		JobID:       "d025fb26-2279-11e6-a607-02163e006dd0",
+		TransferID:  "1e97ce14-227b-11e6-81e2-02163e006dd0",
+		Source:      surlHelper("mock://host/path?size=10"),
+		Destination: surlHelper("mock://host/path?size_post=10&time=2"),
+	}
+
+	task := &tasks.Batch{
+		Type:      tasks.BatchMultisource,
+		Transfers: []*tasks.Transfer{transfer1, transfer2},
+	}
+
+	path := Serialize(t, task)
+	copy := newURLCopy(path)
+	copy.Run()
+
+	start := ConsumeStartMessages(t)
+	end := ConsumeEndMessages(t)
+
+	if len(start.Transfers) != 2 {
+		t.Error("Expecting 2 start message, got", len(start.Transfers))
+		t.Log(start)
+		return
+	}
+	if len(end.Transfers) != 2 {
+		t.Error("Expecting 2 end message, got", len(end.Transfers))
+		t.Log(end)
+		return
+	}
+
+	if end.Transfers[0].Status.State != tasks.TransferFinished {
+		t.Error("Expecting Finished, got", end.Transfers[0].Status.State)
+	}
+	if end.Transfers[1].Status.State != tasks.TransferUnused {
+		t.Error("Expecting Unused, got", end.Transfers[1].Status.State)
+	}
+
+	if end.Transfers[0].Status.Error != nil {
+		t.Error("First transfer expecting success, got", end.Transfers[0].Status.Error)
+	}
+	if end.Transfers[1].Status.Error != nil {
+		t.Error("Second transfer expecting no failure, got", end.Transfers[1].Status.Error)
+	}
+}

@@ -37,9 +37,9 @@ var keepTaskFile = flag.Bool("KeepTaskFile", false, "Do not delete the task file
 var x509proxy = flag.String("Proxy", "", "User X509 proxy")
 
 type urlCopy struct {
-	context        *gfal2.Context
-	canceled       bool
-	multihopFailed bool
+	context  *gfal2.Context
+	canceled bool
+	failures int
 
 	mutex         sync.Mutex
 	batch         tasks.Batch
@@ -321,30 +321,53 @@ func (copy *urlCopy) runTransfer(transfer *tasks.Transfer) {
 
 // sendTerminalForRemaining send a terminal message for any transfer than hasn't run yet.
 // This could be due to external cancellation, or multihop failures.
-func (copy *urlCopy) setTerminalForRemaining() {
-	var description string
-	var state tasks.TransferState
+func (copy *urlCopy) setStateForRemaining() {
+	var remainingStatus *tasks.TransferStatus
 
-	if copy.multihopFailed {
-		description = "Transfer canceled because a previous hop failed"
-		state = tasks.TransferFailed
-	} else {
-		description = "Transfer canceled"
-		state = tasks.TransferCanceled
+	switch copy.batch.Type {
+	// For multihop, one failure = shortcut to all remaining failed
+	case tasks.BatchMultihop:
+		if copy.failures > 0 {
+			remainingStatus = &tasks.TransferStatus{
+				State: tasks.TransferFailed,
+				Error: &tasks.TransferError{
+					Scope:       tasks.ScopeTransfer,
+					Code:        syscall.ECANCELED,
+					Description: "Transfer canceled because a previous hop failed",
+					Recoverable: false,
+				},
+				Stats:   nil,
+				LogFile: nil,
+			}
+		} else {
+			remainingStatus = &tasks.TransferStatus{
+				State:   tasks.TransferOnHold,
+				Stats:   nil,
+				LogFile: nil,
+			}
+		}
+	// For multisources, one success = shortcut to all remaining to unused
+	case tasks.BatchMultisource:
+		if copy.failures == 0 {
+			remainingStatus = &tasks.TransferStatus{
+				State:   tasks.TransferUnused,
+				Stats:   nil,
+				LogFile: nil,
+			}
+		} else {
+			remainingStatus = &tasks.TransferStatus{
+				State:   tasks.TransferOnHold,
+				Stats:   nil,
+				LogFile: nil,
+			}
+		}
+	// For the rest, do nothing
+	default:
+		return
 	}
 
 	for transfer := copy.next(); transfer != nil; transfer = copy.next() {
-		transfer.Status = &tasks.TransferStatus{
-			State: state,
-			Error: &tasks.TransferError{
-				Scope:       tasks.ScopeTransfer,
-				Code:        syscall.ECANCELED,
-				Description: description,
-				Recoverable: false,
-			},
-			Stats:   nil,
-			LogFile: nil,
-		}
+		transfer.Status = remainingStatus
 	}
 }
 
@@ -367,17 +390,18 @@ func (copy *urlCopy) Run() {
 				log.Errorf("Non recoverable error: [%d] %s",
 					copy.transfer.Status.Error.Code, copy.transfer.Status.Error.Description)
 			}
-
-			if copy.batch.Type == tasks.BatchMultihop {
-				copy.multihopFailed = true
-				break
-			}
+			copy.failures++
 		} else {
 			copy.transfer.Status.State = tasks.TransferFinished
 			log.Info("Transfer finished successfully")
 		}
+
+		if copy.batch.Type == tasks.BatchMultihop || copy.batch.Type == tasks.BatchMultisource {
+			break
+		}
 	}
-	copy.setTerminalForRemaining()
+
+	copy.setStateForRemaining()
 	copy.reportBatchEnd()
 }
 

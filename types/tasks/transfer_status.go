@@ -41,13 +41,22 @@ const (
 // Optionally, if staging is required
 //	Staging -> Started -> [Submitted -> Ready -> Active] -> Finished/Failed
 const (
-	TransferStaging       = TransferState("Staging")
-	TransferStarted       = TransferState("Started")
-	TransferSubmitted     = TransferState("Submitted")
-	TransferActive        = TransferState("Active")
-	TransferFinished      = TransferState("Finished")
-	TransferFailed        = TransferState("Failed")
-	TransferCanceled      = TransferState("Canceled")
+	TransferStaging   = TransferState("Staging")
+	TransferStarted   = TransferState("Started")
+	TransferSubmitted = TransferState("Submitted")
+	TransferActive    = TransferState("Active")
+	TransferFinished  = TransferState("Finished")
+	TransferFailed    = TransferState("Failed")
+	TransferCanceled  = TransferState("Canceled")
+)
+
+// These two states are used for multihop and multisources
+const (
+	// TransferWaiting means the transfer will be scheduled, or not, depending
+	// on the previous result.
+	TransferOnHold = TransferState("On Hold")
+	// TransferUnused is a *terminal state* for multihop and multisources
+	TransferUnused = TransferState("Unused")
 )
 
 type (
