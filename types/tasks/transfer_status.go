@@ -21,6 +21,10 @@ import (
 	"syscall"
 )
 
+type (
+	TransferState string
+)
+
 const (
 	// ScopeSource when the error was triggered by the source storage
 	ScopeSource = "Source"
@@ -37,15 +41,14 @@ const (
 // Optionally, if staging is required
 //	Staging -> Started -> [Submitted -> Ready -> Active] -> Finished/Failed
 const (
-	Staging       = "STAGING"
-	Started       = "STARTED"
-	Submitted     = "SUBMITTED"
-	Ready         = "READY"
-	Active        = "ACTIVE"
-	Finished      = "FINISHED"
-	Failed        = "FAILED"
-	Canceled      = "CANCELED"
-	FinishedDirty = "FINISHEDDIRTY"
+	TransferStaging       = TransferState("Staging")
+	TransferStarted       = TransferState("Started")
+	TransferSubmitted     = TransferState("Submitted")
+	TransferReady         = TransferState("Ready")
+	TransferActive        = TransferState("Active")
+	TransferFinished      = TransferState("Finished")
+	TransferFailed        = TransferState("Failed")
+	TransferCanceled      = TransferState("Canceled")
 )
 
 type (
@@ -79,7 +82,7 @@ type (
 	// TransferStatus holds the specific status of a transfer during the whole process chain
 	TransferStatus struct {
 		// Transfer state
-		State string `json:"state"`
+		State TransferState `json:"state"`
 		// Error, if any
 		Error *TransferError `json:"error"`
 		// Associated message

@@ -37,7 +37,7 @@ func (s *Scheduler) RunProducer() error {
 		for err = s.echelon.Dequeue(batch); err == nil; err = s.echelon.Dequeue(batch) {
 			l := log.WithField("batch", batch.GetID())
 
-			batch.State = tasks.Ready
+			batch.State = tasks.BatchReady
 
 			if data, err := json.Marshal(batch); err != nil {
 				l.Error(err)

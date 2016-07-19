@@ -53,7 +53,7 @@ func (s *Scheduler) RunConsumer() error {
 			l := log.WithField("batch", batch.GetID())
 
 			// We are only interested on SUBMITTED batches
-			if batch.State == tasks.Submitted {
+			if batch.State == tasks.BatchSubmitted {
 				err = s.echelon.Enqueue(batch)
 				if err != nil {
 					return err

@@ -66,7 +66,7 @@ func (r *Runner) Run() error {
 					log.Error("Malformed task: ", err)
 				} else if err := batch.Validate(); err != nil {
 					log.Error("Invalid task: ", err)
-				} else if batch.State == tasks.Ready {
+				} else if batch.State == tasks.BatchReady {
 					log.WithField("batch", batch.GetID()).Info("Received batch")
 					if pid, err := RunTransfer(r.Context, &batch); err != nil {
 						log.Error("Failed to run the batch: ", err)

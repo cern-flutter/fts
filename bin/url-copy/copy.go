@@ -177,7 +177,7 @@ func (copy *urlCopy) runTransfer(transfer *tasks.Transfer) {
 	var err error
 
 	transfer.Status = &tasks.TransferStatus{
-		State:   tasks.Active,
+		State:   tasks.TransferActive,
 		Error:   nil,
 		Message: "Starting transfer",
 		Stats:   &tasks.TransferRunStatistics{},
@@ -350,7 +350,7 @@ func (copy *urlCopy) Run() {
 		copy.runTransfer(copy.transfer)
 
 		if copy.transfer.Status.Error != nil {
-			copy.transfer.Status.State = tasks.Failed
+			copy.transfer.Status.State = tasks.TransferFailed
 			if copy.transfer.Status.Error.Recoverable {
 				log.Errorf("Recoverable error: [%d] %s",
 					copy.transfer.Status.Error.Code, copy.transfer.Status.Error.Description)
@@ -364,7 +364,7 @@ func (copy *urlCopy) Run() {
 				break
 			}
 		} else {
-			copy.transfer.Status.State = tasks.Finished
+			copy.transfer.Status.State = tasks.TransferFinished
 			log.Info("Transfer finished successfully")
 		}
 	}

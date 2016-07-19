@@ -72,7 +72,7 @@ func (c *GatewayRPC) Submit(r *http.Request, set *tasks.Batch, nBatches *int) er
 	l.Info("Accepted submission with ", *nBatches, " batches")
 
 	for _, batch := range normalized {
-		batch.State = tasks.Submitted
+		batch.State = tasks.BatchSubmitted
 		data, err := json.Marshal(batch)
 		if err != nil {
 			return err

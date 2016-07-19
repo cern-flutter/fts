@@ -27,10 +27,13 @@ type (
 	// BatchType defines how the batch must be run
 	BatchType string
 
+	// BatchState models the transitions for a batch
+	BatchState string
+
 	// Batch contains a set of transfer that form a logical unit of work
 	Batch struct {
 		Type      BatchType   `json:"type"`
-		State     string      `json:"state"`
+		State     BatchState  `json:"state"`
 		Transfers []*Transfer `json:"transfers"`
 
 		DelegationID string `json:"delegation_id"`
@@ -43,6 +46,11 @@ type (
 )
 
 const (
+	BatchSubmitted = BatchState("Submitted")
+	BatchReady     = BatchState("Ready")
+	BatchRunning   = BatchState("Running")
+	BatchDone      = BatchState("Done")
+
 	// BatchSimple each transfer is independent
 	BatchSimple = BatchType("Simple")
 	// BatchBulk each transfer are independent, but the network connection and ssl session is to be reused

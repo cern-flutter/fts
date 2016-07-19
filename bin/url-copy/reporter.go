@@ -36,7 +36,7 @@ func (copy *urlCopy) reportBatchStart() {
 	if err != nil {
 		log.Panic(err)
 	}
-	copy.batch.State = tasks.Active
+	copy.batch.State = tasks.BatchRunning
 	data, err := json.Marshal(copy.batch)
 	if err != nil {
 		log.Panic(err)
@@ -57,18 +57,12 @@ func (copy *urlCopy) reportBatchEnd() {
 
 	nFinished := 0
 	for _, t := range copy.batch.Transfers {
-		if t.Status != nil && t.Status.State == tasks.Finished {
+		if t.Status != nil && t.Status.State == tasks.TransferFinished {
 			nFinished++
 		}
 	}
 
-	if nFinished == len(copy.batch.Transfers) {
-		copy.batch.State = tasks.Finished
-	} else if nFinished == 0 {
-		copy.batch.State = tasks.Failed
-	} else {
-		copy.batch.State = tasks.FinishedDirty
-	}
+	copy.batch.State = tasks.BatchDone
 
 	endPath := path.Join(*dirqBasePath, "end")
 	endDirq, err := dirq.New(endPath)
