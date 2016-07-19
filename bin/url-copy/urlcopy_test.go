@@ -167,14 +167,14 @@ func TestSimpleTransfer(t *testing.T) {
 		t.Log(end)
 		t.Log(transfer)
 	}
-	if end.Transfers[0].Status.State != tasks.TransferFinished {
-		t.Error("Expecting Finished, got", end.Transfers[0].Status.State)
+	if end.Transfers[0].State != tasks.TransferFinished {
+		t.Error("Expecting Finished, got", end.Transfers[0].State)
 	}
-	if end.Transfers[0].Status.Error != nil {
-		t.Error("Expecting success, got", end.Transfers[0].Status.Error.Description)
+	if end.Transfers[0].Info.Error != nil {
+		t.Error("Expecting success, got", end.Transfers[0].Info.Error.Description)
 	}
-	if end.Transfers[0].Status.Stats.TransferredBytes != 10 {
-		t.Error("Expecting filesize to be reported 10, got", end.Transfers[0].Status.Stats.TransferredBytes)
+	if end.Transfers[0].Info.Stats.TransferredBytes != 10 {
+		t.Error("Expecting filesize to be reported 10, got", end.Transfers[0].Info.Stats.TransferredBytes)
 	}
 }
 
@@ -209,16 +209,16 @@ func TestPanic(t *testing.T) {
 		t.Log(transfer)
 	}
 
-	if end.Transfers[0].Status.State != tasks.TransferFailed {
-		t.Error("Expecting Failed, got", end.Transfers[0].Status.State)
+	if end.Transfers[0].State != tasks.TransferFailed {
+		t.Error("Expecting Failed, got", end.Transfers[0].State)
 	}
 
-	if end.Transfers[0].Status.Error == nil {
+	if end.Transfers[0].Info.Error == nil {
 		t.Error("Expecting an error, got none")
-	} else if end.Transfers[0].Status.Error.Code != syscall.EINTR {
-		t.Error("Expecting EINTR, got", end.Transfers[0].Status.Error.Code)
-	} else if end.Transfers[0].Status.Error.Description != "TEST PANIC MESSAGE" {
-		t.Error("Unexpected error message, got", end.Transfers[0].Status.Error.Description)
+	} else if end.Transfers[0].Info.Error.Code != syscall.EINTR {
+		t.Error("Expecting EINTR, got", end.Transfers[0].Info.Error.Code)
+	} else if end.Transfers[0].Info.Error.Description != "TEST PANIC MESSAGE" {
+		t.Error("Unexpected error message, got", end.Transfers[0].Info.Error.Description)
 	}
 }
 
@@ -257,8 +257,8 @@ func TestCancel(t *testing.T) {
 		return
 	}
 
-	if end.Transfers[0].Status.State != tasks.TransferCanceled {
-		t.Error("Expecting Canceled, got", end.Transfers[0].Status.State)
+	if end.Transfers[0].State != tasks.TransferCanceled {
+		t.Error("Expecting Canceled, got", end.Transfers[0].State)
 	}
 
 	if start.Transfers[0].JobID != transfer.JobID || start.Transfers[0].TransferID != transfer.TransferID {
@@ -271,11 +271,11 @@ func TestCancel(t *testing.T) {
 		t.Log(end)
 		t.Log(transfer)
 	}
-	if end.Transfers[0].Status.Error == nil {
+	if end.Transfers[0].Info.Error == nil {
 		t.Error("Expecting an error, got success")
 		return
-	} else if end.Transfers[0].Status.Error.Code != syscall.ECANCELED {
-		t.Error("Expecting ECANCELED, got", end.Transfers[0].Status.Error.Code)
+	} else if end.Transfers[0].Info.Error.Code != syscall.ECANCELED {
+		t.Error("Expecting ECANCELED, got", end.Transfers[0].Info.Error.Code)
 	}
 }
 
@@ -324,13 +324,13 @@ func TestTimeout(t *testing.T) {
 		t.Log(end)
 		t.Log(transfer)
 	}
-	if end.Transfers[0].Status.State != tasks.TransferFailed {
-		t.Error("Expecting Failed, got", end.Transfers[0].Status.State)
+	if end.Transfers[0].State != tasks.TransferFailed {
+		t.Error("Expecting Failed, got", end.Transfers[0].State)
 	}
-	if end.Transfers[0].Status.Error == nil {
+	if end.Transfers[0].Info.Error == nil {
 		t.Error("Expecting an error, got success")
-	} else if end.Transfers[0].Status.Error.Code != syscall.ETIMEDOUT {
-		t.Error("Expecting ETIMEDOUT, got", end.Transfers[0].Status.Error.Code)
+	} else if end.Transfers[0].Info.Error.Code != syscall.ETIMEDOUT {
+		t.Error("Expecting ETIMEDOUT, got", end.Transfers[0].Info.Error.Code)
 	}
 }
 
@@ -371,27 +371,27 @@ func TestMultipleSimple(t *testing.T) {
 		return
 	}
 
-	if end.Transfers[0].Status.State != tasks.TransferFinished {
-		t.Error("Expecting Finished, got", end.Transfers[0].Status.State)
+	if end.Transfers[0].State != tasks.TransferFinished {
+		t.Error("Expecting Finished, got", end.Transfers[0].State)
 	}
-	if end.Transfers[1].Status.State != tasks.TransferFinished {
-		t.Error("Expecting Finished, got", end.Transfers[1].Status.State)
-	}
-
-	if end.Transfers[0].Status.Error != nil {
-		t.Error("First transfer expected success, got", end.Transfers[0].Status.Error.Description)
-		return
-	}
-	if end.Transfers[1].Status.Error != nil {
-		t.Error("Second transfer expected success, got", end.Transfers[1].Status.Error.Description)
-		return
+	if end.Transfers[1].State != tasks.TransferFinished {
+		t.Error("Expecting Finished, got", end.Transfers[1].State)
 	}
 
-	if end.Transfers[0].Status.Stats.TransferredBytes != 10 {
-		t.Error("File size for transfer 1 does not match. Got", end.Transfers[0].Status.Stats.TransferredBytes)
+	if end.Transfers[0].Info.Error != nil {
+		t.Error("First transfer expected success, got", end.Transfers[0].Info.Error.Description)
+		return
 	}
-	if end.Transfers[1].Status.Stats.TransferredBytes != 42 {
-		t.Error("File size for transfer 2 does not match. Got", end.Transfers[1].Status.Stats.TransferredBytes)
+	if end.Transfers[1].Info.Error != nil {
+		t.Error("Second transfer expected success, got", end.Transfers[1].Info.Error.Description)
+		return
+	}
+
+	if end.Transfers[0].Info.Stats.TransferredBytes != 10 {
+		t.Error("File size for transfer 1 does not match. Got", end.Transfers[0].Info.Stats.TransferredBytes)
+	}
+	if end.Transfers[1].Info.Stats.TransferredBytes != 42 {
+		t.Error("File size for transfer 2 does not match. Got", end.Transfers[1].Info.Stats.TransferredBytes)
 	}
 }
 
@@ -437,20 +437,20 @@ func TestMultipleCancel(t *testing.T) {
 		return
 	}
 
-	if end.Transfers[0].Status.State != tasks.TransferFinished {
-		t.Error("Expecting Finished, got", end.Transfers[0].Status.State)
+	if end.Transfers[0].State != tasks.TransferFinished {
+		t.Error("Expecting Finished, got", end.Transfers[0].State)
 	}
-	if end.Transfers[1].Status.State != tasks.TransferCanceled {
-		t.Error("Expecting Canceled, got", end.Transfers[1].Status.State)
+	if end.Transfers[1].State != tasks.TransferCanceled {
+		t.Error("Expecting Canceled, got", end.Transfers[1].State)
 	}
 
-	if end.Transfers[0].Status.Error != nil {
-		t.Error("First transfer expecting success, got", end.Transfers[0].Status.Error.Description)
+	if end.Transfers[0].Info.Error != nil {
+		t.Error("First transfer expecting success, got", end.Transfers[0].Info.Error.Description)
 	}
-	if end.Transfers[1].Status.Error == nil {
+	if end.Transfers[1].Info.Error == nil {
 		t.Error("Second transfer expecting failure, got success")
-	} else if end.Transfers[1].Status.Error.Code != syscall.ECANCELED {
-		t.Error("Second transfer expecting ECANCELED, got", end.Transfers[1].Status.Error.Code)
+	} else if end.Transfers[1].Info.Error.Code != syscall.ECANCELED {
+		t.Error("Second transfer expecting ECANCELED, got", end.Transfers[1].Info.Error.Code)
 	}
 }
 
@@ -496,20 +496,20 @@ func TestMultiplePanic(t *testing.T) {
 		return
 	}
 
-	if end.Transfers[0].Status.State != tasks.TransferFinished {
-		t.Error("Expecting Finished, got", end.Transfers[0].Status.State)
+	if end.Transfers[0].State != tasks.TransferFinished {
+		t.Error("Expecting Finished, got", end.Transfers[0].State)
 	}
-	if end.Transfers[1].Status.State != tasks.TransferFailed {
-		t.Error("Expecting Failed, got", end.Transfers[1].Status.State)
+	if end.Transfers[1].State != tasks.TransferFailed {
+		t.Error("Expecting Failed, got", end.Transfers[1].State)
 	}
 
-	if end.Transfers[0].Status.Error != nil {
-		t.Error("First transfer expecting success, got", end.Transfers[0].Status.Error.Description)
+	if end.Transfers[0].Info.Error != nil {
+		t.Error("First transfer expecting success, got", end.Transfers[0].Info.Error.Description)
 	}
-	if end.Transfers[1].Status.Error == nil {
+	if end.Transfers[1].Info.Error == nil {
 		t.Error("Second transfer expecting failure, got success")
-	} else if end.Transfers[1].Status.Error.Code != syscall.EINTR {
-		t.Error("Second transfer expecting EINTR, got", end.Transfers[1].Status.Error.Code)
+	} else if end.Transfers[1].Info.Error.Code != syscall.EINTR {
+		t.Error("Second transfer expecting EINTR, got", end.Transfers[1].Info.Error.Code)
 	}
 }
 
@@ -552,22 +552,22 @@ func TestMultiHop(t *testing.T) {
 		return
 	}
 
-	if end.Transfers[0].Status.State != tasks.TransferFailed {
-		t.Error("Expecting Failed, got", end.Transfers[0].Status.State)
+	if end.Transfers[0].State != tasks.TransferFailed {
+		t.Error("Expecting Failed, got", end.Transfers[0].State)
 	}
-	if end.Transfers[1].Status.State != tasks.TransferFailed {
-		t.Error("Expecting Failed, got", end.Transfers[1].Status.State)
+	if end.Transfers[1].State != tasks.TransferFailed {
+		t.Error("Expecting Failed, got", end.Transfers[1].State)
 	}
 
-	if end.Transfers[0].Status.Error == nil {
+	if end.Transfers[0].Info.Error == nil {
 		t.Error("First transfer expecting failure, got success")
-	} else if end.Transfers[0].Status.Error.Code != syscall.ENOENT {
-		t.Error("First transfer expecting ENOENT, got", end.Transfers[0].Status.Error.Code)
+	} else if end.Transfers[0].Info.Error.Code != syscall.ENOENT {
+		t.Error("First transfer expecting ENOENT, got", end.Transfers[0].Info.Error.Code)
 	}
-	if end.Transfers[1].Status.Error == nil {
+	if end.Transfers[1].Info.Error == nil {
 		t.Error("Second transfer expecting failure, got success")
-	} else if end.Transfers[1].Status.Error.Code != syscall.ECANCELED {
-		t.Error("Second transfer expecting ECANCELED, got", end.Transfers[0].Status.Error.Code)
+	} else if end.Transfers[1].Info.Error.Code != syscall.ECANCELED {
+		t.Error("Second transfer expecting ECANCELED, got", end.Transfers[0].Info.Error.Code)
 	}
 }
 
@@ -609,18 +609,18 @@ func TestMultiHop2(t *testing.T) {
 		return
 	}
 
-	if end.Transfers[0].Status.State != tasks.TransferFinished {
-		t.Error("Expecting Finished, got", end.Transfers[0].Status.State)
+	if end.Transfers[0].State != tasks.TransferFinished {
+		t.Error("Expecting Finished, got", end.Transfers[0].State)
 	}
-	if end.Transfers[1].Status.State != tasks.TransferOnHold {
-		t.Error("Expecting On Hold, got", end.Transfers[1].Status.State)
+	if end.Transfers[1].State != tasks.TransferOnHold {
+		t.Error("Expecting On Hold, got", end.Transfers[1].State)
 	}
 
-	if end.Transfers[0].Status.Error != nil {
-		t.Error("First transfer expecting success, got", end.Transfers[0].Status.Error)
+	if end.Transfers[0].Info.Error != nil {
+		t.Error("First transfer expecting success, got", end.Transfers[0].Info.Error)
 	}
-	if end.Transfers[1].Status.Error != nil {
-		t.Error("Second transfer expecting no error, got", end.Transfers[1].Status.Error)
+	if end.Transfers[1].Info.Error != nil {
+		t.Error("Second transfer expecting no error, got", end.Transfers[1].Info.Error)
 	}
 }
 
@@ -663,20 +663,20 @@ func TestMultisources(t *testing.T) {
 		return
 	}
 
-	if end.Transfers[0].Status.State != tasks.TransferFailed {
-		t.Error("Expecting Failed, got", end.Transfers[0].Status.State)
+	if end.Transfers[0].State != tasks.TransferFailed {
+		t.Error("Expecting Failed, got", end.Transfers[0].State)
 	}
-	if end.Transfers[1].Status.State != tasks.TransferOnHold {
-		t.Error("Expecting On Hold, got", end.Transfers[1].Status.State)
+	if end.Transfers[1].State != tasks.TransferOnHold {
+		t.Error("Expecting On Hold, got", end.Transfers[1].State)
 	}
 
-	if end.Transfers[0].Status.Error == nil {
+	if end.Transfers[0].Info.Error == nil {
 		t.Error("First transfer expecting failure, got success")
-	} else if end.Transfers[0].Status.Error.Code != syscall.ENOENT {
-		t.Error("First transfer expecting ENOENT, got", end.Transfers[0].Status.Error.Code)
+	} else if end.Transfers[0].Info.Error.Code != syscall.ENOENT {
+		t.Error("First transfer expecting ENOENT, got", end.Transfers[0].Info.Error.Code)
 	}
-	if end.Transfers[1].Status.Error != nil {
-		t.Error("Second transfer expecting no failure, got", end.Transfers[1].Status.Error)
+	if end.Transfers[1].Info.Error != nil {
+		t.Error("Second transfer expecting no failure, got", end.Transfers[1].Info.Error)
 	}
 }
 
@@ -718,17 +718,17 @@ func TestMultisources2(t *testing.T) {
 		return
 	}
 
-	if end.Transfers[0].Status.State != tasks.TransferFinished {
-		t.Error("Expecting Finished, got", end.Transfers[0].Status.State)
+	if end.Transfers[0].State != tasks.TransferFinished {
+		t.Error("Expecting Finished, got", end.Transfers[0].State)
 	}
-	if end.Transfers[1].Status.State != tasks.TransferUnused {
-		t.Error("Expecting Unused, got", end.Transfers[1].Status.State)
+	if end.Transfers[1].State != tasks.TransferUnused {
+		t.Error("Expecting Unused, got", end.Transfers[1].State)
 	}
 
-	if end.Transfers[0].Status.Error != nil {
-		t.Error("First transfer expecting success, got", end.Transfers[0].Status.Error)
+	if end.Transfers[0].Info.Error != nil {
+		t.Error("First transfer expecting success, got", end.Transfers[0].Info.Error)
 	}
-	if end.Transfers[1].Status.Error != nil {
-		t.Error("Second transfer expecting no failure, got", end.Transfers[1].Status.Error)
+	if end.Transfers[1].Info.Error != nil {
+		t.Error("Second transfer expecting no failure, got", end.Transfers[1].Info.Error)
 	}
 }

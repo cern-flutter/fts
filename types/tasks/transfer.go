@@ -73,6 +73,9 @@ type (
 
 	// Transfer to be run by FTS
 	Transfer struct {
+		// Transfer state
+		State TransferState `json:"state"`
+
 		// Job to which this transfer belongs
 		JobID JobID `json:"job_id"`
 		// Transfer Id
@@ -102,8 +105,8 @@ type (
 		// Additional parameters for the transfer
 		Parameters TransferParameters `json:"params"`
 
-		// State info for when it is due
-		Status *TransferStatus `json:"status"`
+		// Info for when it is done
+		Info *TransferInfo `json:"info"`
 	}
 )
 

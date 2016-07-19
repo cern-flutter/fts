@@ -87,10 +87,8 @@ type (
 		Intervals TransferIntervals `json:"intervals"`
 	}
 
-	// TransferStatus holds the specific status of a transfer during the whole process chain
-	TransferStatus struct {
-		// Transfer state
-		State TransferState `json:"state"`
+	// TransferInfo holds the specific status of a transfer during the whole process chain
+	TransferInfo struct {
 		// Error, if any
 		Error *TransferError `json:"error"`
 		// Associated message

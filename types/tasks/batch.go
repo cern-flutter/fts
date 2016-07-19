@@ -130,6 +130,7 @@ func (ts *Batch) splitSimple() []*Batch {
 		if transfer.Activity == "" {
 			transfer.Activity = "default"
 		}
+		transfer.State = TransferSubmitted
 		set = append(set, &Batch{
 			Type:         BatchSimple,
 			DelegationID: ts.DelegationID,
@@ -154,6 +155,8 @@ func (ts *Batch) splitBulk() []*Batch {
 		if transfer.Activity == "" {
 			transfer.Activity = "default"
 		}
+		transfer.State = TransferSubmitted
+
 		sourceSe := transfer.Source.GetStorageName()
 		destSe := transfer.Destination.GetStorageName()
 		k := key{sourceSe, destSe, transfer.Activity}
@@ -202,6 +205,13 @@ func (ts *Batch) Normalize() []*Batch {
 			ts.Activity = ts.Transfers[0].Activity
 		} else {
 			ts.Activity = "default"
+		}
+		for i := range ts.Transfers {
+			if i == 0 {
+				ts.Transfers[i].State = TransferSubmitted
+			} else {
+				ts.Transfers[i].State = TransferOnHold
+			}
 		}
 	default:
 		log.Panic("Unexpected batch type: ", ts.Type)

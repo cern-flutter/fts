@@ -71,7 +71,7 @@ func newURLCopy(taskfile string) *urlCopy {
 
 	// All transfers, from now on, will have a status
 	for index := range copy.batch.Transfers {
-		copy.batch.Transfers[index].Status = &tasks.TransferStatus{}
+		copy.batch.Transfers[index].Info = &tasks.TransferInfo{}
 	}
 
 	copy.context, err = gfal2.NewContext()
@@ -167,8 +167,8 @@ func (copy *urlCopy) NotifyPerformanceMarker(marker gfal2.Marker) {
 	if err := copy.reportPerformance(perf); err != nil {
 		log.Error(err)
 	}
-	copy.transfer.Status.Stats.TransferredBytes = int64(marker.BytesTransferred)
-	copy.transfer.Status.Stats.Throughput = float32(marker.AvgThroughput)
+	copy.transfer.Info.Stats.TransferredBytes = int64(marker.BytesTransferred)
+	copy.transfer.Info.Stats.Throughput = float32(marker.AvgThroughput)
 }
 
 // runTransfer prepares the context and copy handler, and run the transfer. It sends the start message,
@@ -176,14 +176,13 @@ func (copy *urlCopy) NotifyPerformanceMarker(marker gfal2.Marker) {
 func (copy *urlCopy) runTransfer(transfer *tasks.Transfer) {
 	var err error
 
-	transfer.Status = &tasks.TransferStatus{
-		State:   tasks.TransferActive,
+	transfer.Info = &tasks.TransferInfo{
 		Error:   nil,
 		Message: "Starting transfer",
 		Stats:   &tasks.TransferRunStatistics{},
 		LogFile: nil,
 	}
-	transfer.Status.Stats.Intervals.Total.Start = time.Now()
+	transfer.Info.Stats.Intervals.Total.Start = time.Now()
 
 	logFile, err := generateLogPath(transfer)
 	if err != nil {
@@ -191,7 +190,7 @@ func (copy *urlCopy) runTransfer(transfer *tasks.Transfer) {
 	}
 	if !*logToStderr {
 		redirectLog(logFile)
-		transfer.Status.LogFile = &logFile
+		transfer.Info.LogFile = &logFile
 	}
 
 	log.Info("Transfer accepted")
@@ -202,7 +201,7 @@ func (copy *urlCopy) runTransfer(transfer *tasks.Transfer) {
 	copy.setupGfal2ForTransfer(transfer)
 	params, gerr := copy.createCopyHandler(transfer)
 	if gerr != nil {
-		transfer.Status.Error = &tasks.TransferError{
+		transfer.Info.Error = &tasks.TransferError{
 			Scope:       tasks.ScopeAgent,
 			Code:        gerr.Code(),
 			Description: gerr.Error(),
@@ -241,7 +240,7 @@ func (copy *urlCopy) runTransfer(transfer *tasks.Transfer) {
 
 	srcStat, gerr := copy.context.Stat(transfer.Source.String())
 	if gerr != nil {
-		transfer.Status.Error = &tasks.TransferError{
+		transfer.Info.Error = &tasks.TransferError{
 			Scope:       tasks.ScopeSource,
 			Code:        gerr.Code(),
 			Description: gerr.Error(),
@@ -253,7 +252,7 @@ func (copy *urlCopy) runTransfer(transfer *tasks.Transfer) {
 	log.Infof("File size: %d", srcStat.Size())
 
 	if transfer.Filesize != nil && *transfer.Filesize != 0 && *transfer.Filesize != srcStat.Size() {
-		transfer.Status.Error = &tasks.TransferError{
+		transfer.Info.Error = &tasks.TransferError{
 			Scope: tasks.ScopeSource,
 			Code:  syscall.EINVAL,
 			Description: fmt.Sprintf(
@@ -287,7 +286,7 @@ func (copy *urlCopy) runTransfer(transfer *tasks.Transfer) {
 	case _ = <-done:
 	case <-time.After(timeout):
 		copy.context.Cancel()
-		transfer.Status.Error = &tasks.TransferError{
+		transfer.Info.Error = &tasks.TransferError{
 			Scope:       tasks.ScopeTransfer,
 			Code:        syscall.ETIMEDOUT,
 			Description: "Transfer timed out",
@@ -296,10 +295,10 @@ func (copy *urlCopy) runTransfer(transfer *tasks.Transfer) {
 		return
 	}
 
-	transfer.Status.Stats.Intervals.Total.End = time.Now()
+	transfer.Info.Stats.Intervals.Total.End = time.Now()
 
 	if gerr != nil {
-		transfer.Status.Error = &tasks.TransferError{
+		transfer.Info.Error = &tasks.TransferError{
 			Scope:       tasks.ScopeTransfer,
 			Code:        gerr.Code(),
 			Description: gerr.Error(),
@@ -307,12 +306,12 @@ func (copy *urlCopy) runTransfer(transfer *tasks.Transfer) {
 		}
 	} else {
 		// Adjust size and throughput if the protocol didn't give us perf.markers
-		if transfer.Status.Stats.TransferredBytes == 0 {
-			transfer.Status.Stats.TransferredBytes = srcStat.Size()
+		if transfer.Info.Stats.TransferredBytes == 0 {
+			transfer.Info.Stats.TransferredBytes = srcStat.Size()
 		}
-		if transfer.Status.Stats.Throughput == 0 {
-			transfer.Status.Stats.Throughput = float32(
-				float64(srcStat.Size()) / (transfer.Status.Stats.Intervals.Total.Seconds()),
+		if transfer.Info.Stats.Throughput == 0 {
+			transfer.Info.Stats.Throughput = float32(
+				float64(srcStat.Size()) / (transfer.Info.Stats.Intervals.Total.Seconds()),
 			)
 		}
 	}
@@ -322,14 +321,15 @@ func (copy *urlCopy) runTransfer(transfer *tasks.Transfer) {
 // sendTerminalForRemaining send a terminal message for any transfer than hasn't run yet.
 // This could be due to external cancellation, or multihop failures.
 func (copy *urlCopy) setStateForRemaining() {
-	var remainingStatus *tasks.TransferStatus
+	var remainingInfo *tasks.TransferInfo
+	var remainingState tasks.TransferState
 
 	switch copy.batch.Type {
 	// For multihop, one failure = shortcut to all remaining failed
 	case tasks.BatchMultihop:
 		if copy.failures > 0 {
-			remainingStatus = &tasks.TransferStatus{
-				State: tasks.TransferFailed,
+			remainingState = tasks.TransferFailed
+			remainingInfo = &tasks.TransferInfo{
 				Error: &tasks.TransferError{
 					Scope:       tasks.ScopeTransfer,
 					Code:        syscall.ECANCELED,
@@ -340,8 +340,8 @@ func (copy *urlCopy) setStateForRemaining() {
 				LogFile: nil,
 			}
 		} else {
-			remainingStatus = &tasks.TransferStatus{
-				State:   tasks.TransferOnHold,
+			remainingState = tasks.TransferOnHold
+			remainingInfo = &tasks.TransferInfo{
 				Stats:   nil,
 				LogFile: nil,
 			}
@@ -349,14 +349,14 @@ func (copy *urlCopy) setStateForRemaining() {
 	// For multisources, one success = shortcut to all remaining to unused
 	case tasks.BatchMultisource:
 		if copy.failures == 0 {
-			remainingStatus = &tasks.TransferStatus{
-				State:   tasks.TransferUnused,
+			remainingState = tasks.TransferUnused
+			remainingInfo = &tasks.TransferInfo{
 				Stats:   nil,
 				LogFile: nil,
 			}
 		} else {
-			remainingStatus = &tasks.TransferStatus{
-				State:   tasks.TransferOnHold,
+			remainingState = tasks.TransferOnHold
+			remainingInfo = &tasks.TransferInfo{
 				Stats:   nil,
 				LogFile: nil,
 			}
@@ -367,7 +367,8 @@ func (copy *urlCopy) setStateForRemaining() {
 	}
 
 	for transfer := copy.next(); transfer != nil; transfer = copy.next() {
-		transfer.Status = remainingStatus
+		transfer.State = remainingState
+		transfer.Info = remainingInfo
 	}
 }
 
@@ -377,22 +378,22 @@ func (copy *urlCopy) Run() {
 	for copy.transfer = copy.next(); copy.transfer != nil && !copy.canceled; copy.transfer = copy.next() {
 		copy.runTransfer(copy.transfer)
 
-		if copy.transfer.Status.Error != nil {
-			if copy.transfer.Status.Error.Code == syscall.ECANCELED {
-				copy.transfer.Status.State = tasks.TransferCanceled
+		if copy.transfer.Info.Error != nil {
+			if copy.transfer.Info.Error.Code == syscall.ECANCELED {
+				copy.transfer.State = tasks.TransferCanceled
 			} else {
-				copy.transfer.Status.State = tasks.TransferFailed
+				copy.transfer.State = tasks.TransferFailed
 			}
-			if copy.transfer.Status.Error.Recoverable {
+			if copy.transfer.Info.Error.Recoverable {
 				log.Errorf("Recoverable error: [%d] %s",
-					copy.transfer.Status.Error.Code, copy.transfer.Status.Error.Description)
+					copy.transfer.Info.Error.Code, copy.transfer.Info.Error.Description)
 			} else {
 				log.Errorf("Non recoverable error: [%d] %s",
-					copy.transfer.Status.Error.Code, copy.transfer.Status.Error.Description)
+					copy.transfer.Info.Error.Code, copy.transfer.Info.Error.Description)
 			}
 			copy.failures++
 		} else {
-			copy.transfer.Status.State = tasks.TransferFinished
+			copy.transfer.State = tasks.TransferFinished
 			log.Info("Transfer finished successfully")
 		}
 
@@ -425,13 +426,13 @@ func (copy *urlCopy) Panic(format string, args ...interface{}) {
 	}
 	// Not run yet
 	for transfer := copy.next(); transfer != nil; transfer = copy.next() {
-		transfer.Status.State = tasks.TransferFailed
-		transfer.Status.Error = error
+		transfer.State = tasks.TransferFailed
+		transfer.Info.Error = error
 	}
 	// The one running
 	if copy.transfer != nil {
-		copy.transfer.Status.State = tasks.TransferFailed
-		copy.transfer.Status.Error = error
+		copy.transfer.State = tasks.TransferFailed
+		copy.transfer.Info.Error = error
 	}
 	copy.reportBatchEnd()
 }

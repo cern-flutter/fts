@@ -213,7 +213,7 @@ func TestNormBulkSplit(t *testing.T) {
 	if len(normalized) != 2 {
 		t.Fatal("Expecting the bulk to be split together")
 	}
-	
+
 	if normalized[0].SourceSe != "mock://a" {
 		t.Fatal("Unexpected source se")
 	}
@@ -258,5 +258,44 @@ func TestNormalizeOne(t *testing.T) {
 	}
 	if normalized[0].DestSe != "mock://b" {
 		t.Fatal("Unexpected destination se")
+	}
+}
+
+// Cal normalization of a multisource batch
+func TestNormalizeMultisources(t *testing.T) {
+
+}
+
+// Cal normalization of a multihop batch
+func TestNormalizeMultihop(t *testing.T) {
+	src1, _ := surl.Parse("mock://a/patch")
+	dst1, _ := surl.Parse("mock://b/patch")
+	dst2, _ := surl.Parse("mock://c/patch")
+
+	ts := &Batch{
+		Type:         BatchMultihop,
+		DelegationID: "1234",
+		Transfers: []*Transfer{
+			{
+				JobID: "abcde", TransferID: "1234",
+				Source: *src1, Destination: *dst1,
+			},
+			{
+				JobID: "abcde", TransferID: "1234",
+				Source: *dst1, Destination: *dst2,
+			},
+		},
+	}
+
+	normalized := ts.Normalize()
+	if len(normalized) != 1 {
+		t.Fatal("Expecting one single batch")
+	}
+
+	if normalized[0].Transfers[0].State != TransferSubmitted {
+		t.Fatal("Expecting first one to be in Submitted")
+	}
+	if normalized[0].Transfers[1].State != TransferOnHold {
+		t.Fatal("Expecting first one to be in On Hold")
 	}
 }

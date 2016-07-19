@@ -57,7 +57,7 @@ func (copy *urlCopy) reportBatchEnd() {
 
 	nFinished := 0
 	for _, t := range copy.batch.Transfers {
-		if t.Status != nil && t.Status.State == tasks.TransferFinished {
+		if t.Info != nil && t.State == tasks.TransferFinished {
 			nFinished++
 		}
 	}
