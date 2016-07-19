@@ -213,14 +213,7 @@ func TestNormBulkSplit(t *testing.T) {
 	if len(normalized) != 2 {
 		t.Fatal("Expecting the bulk to be split together")
 	}
-
-	if !reflect.DeepEqual(ts.Transfers[0], normalized[0].Transfers[0]) {
-		t.Fatal("Bulks are different")
-	}
-	if !reflect.DeepEqual(ts.Transfers[1], normalized[1].Transfers[0]) {
-		t.Fatal("Bulks are different")
-	}
-
+	
 	if normalized[0].SourceSe != "mock://a" {
 		t.Fatal("Unexpected source se")
 	}
