@@ -71,7 +71,8 @@ func main() {
 	// Flags
 	x509Cmd.Flags().String("Log", "", "Log file")
 	x509Cmd.Flags().String("Listen", "localhost:42001", "Bind to this address")
-	x509Cmd.Flags().String("Database", "dbname=fts user=fts password=fts host=localhost", "Database connection string")
+	x509Cmd.Flags().String("Database", "dbname=fts user=fts password=fts host=localhost sslmode=disable",
+		"Database connection string")
 	x509Cmd.Flags().Bool("Debug", true, "Enable debugging")
 
 	// Bind flags to viper
