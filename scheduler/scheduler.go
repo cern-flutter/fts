@@ -18,6 +18,7 @@ package scheduler
 
 import (
 	"gitlab.cern.ch/flutter/echelon"
+	"gitlab.cern.ch/flutter/fts/types/tasks"
 	"gitlab.cern.ch/flutter/stomp"
 )
 
@@ -42,8 +43,10 @@ func New(params stomp.ConnectionParameters, echelonDir string) (*Scheduler, erro
 	if sched.consumer, err = stomp.NewConsumer(params); err != nil {
 		return nil, err
 	}
-	sched.echelon = echelon.New(echelonDir, &SchedInfoProvider{})
-	if err = sched.echelon.Restore(); err != nil {
+	if sched.echelon, err = echelon.New(echelonDir, &SchedInfoProvider{}); err != nil {
+		return nil, err
+	}
+	if err = sched.echelon.Restore(&tasks.Batch{}); err != nil {
 		return nil, err
 	}
 	return sched, nil

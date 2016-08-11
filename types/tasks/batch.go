@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
+	"time"
 )
 
 type (
@@ -32,6 +33,9 @@ type (
 
 	// Batch contains a set of transfer that form a logical unit of work
 	Batch struct {
+		// Submission timestamp, used for scheduling
+		Timestamp time.Time
+
 		Type      BatchType   `json:"type"`
 		State     BatchState  `json:"state"`
 		Transfers []*Transfer `json:"transfers"`
@@ -97,6 +101,16 @@ func (ts *Batch) GetID() string {
 	return fmt.Sprintf("%x", sum)
 }
 
+// GetPath is called by the scheduler to decide the scheduling levels
+func (ts *Batch) GetPath() []string {
+	return []string{ts.DestSe, ts.Vo, ts.Activity, ts.SourceSe}
+}
+
+// GetTimestamp returns the submit timestamp of the batch
+func (ts *Batch) GetTimestamp() time.Time {
+	return ts.Timestamp
+}
+
 // Merge returns a new TransferSet merging b into ts
 // Note that a batch is only mergeable if both are of type Bulk
 func (ts *Batch) Merge(b *Batch) (*Batch, error) {
@@ -111,6 +125,7 @@ func (ts *Batch) Merge(b *Batch) (*Batch, error) {
 	}
 
 	newTs := &Batch{
+		Timestamp:    ts.Timestamp,
 		Type:         BatchBulk,
 		DelegationID: ts.DelegationID,
 		Vo:           ts.Vo,
@@ -132,6 +147,7 @@ func (ts *Batch) splitSimple() []*Batch {
 		}
 		transfer.State = TransferSubmitted
 		set = append(set, &Batch{
+			Timestamp:    ts.Timestamp,
 			Type:         BatchSimple,
 			DelegationID: ts.DelegationID,
 			Transfers:    []*Transfer{transfer},
@@ -164,6 +180,7 @@ func (ts *Batch) splitBulk() []*Batch {
 
 		if batch == nil {
 			batch = &Batch{
+				Timestamp:    ts.Timestamp,
 				Type:         BatchBulk,
 				State:        ts.State,
 				Transfers:    make([]*Transfer, 0),

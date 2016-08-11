@@ -54,7 +54,7 @@ var scheddCmd = &cobra.Command{
 					reconnectRetries = 0
 				}
 			},
-		}, viper.Get("schedd.dirq").(string))
+		}, viper.Get("schedd.db").(string))
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -87,7 +87,7 @@ func main() {
 	scheddCmd.Flags().Bool("Debug", true, "Enable debugging")
 	viper.BindPFlag("schedd.log", scheddCmd.Flags().Lookup("Log"))
 	viper.BindPFlag("schedd.debug", scheddCmd.Flags().Lookup("Debug"))
-	viper.BindPFlag("schedd.dirq", scheddCmd.Flags().Lookup("EchelonDir"))
+	viper.BindPFlag("schedd.db", scheddCmd.Flags().Lookup("EchelonDir"))
 
 	cobra.OnInitialize(func() {
 		if *configFile != "" {

@@ -54,7 +54,7 @@ func (s *Scheduler) RunConsumer() error {
 
 			// We are only interested on SUBMITTED batches
 			if batch.State == tasks.BatchSubmitted {
-				err = s.echelon.Enqueue(batch)
+				err = s.echelon.Enqueue(&batch)
 				if err != nil {
 					return err
 				}

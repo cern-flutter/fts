@@ -21,10 +21,6 @@ type (
 	}
 )
 
-func (info *SchedInfoProvider) Keys() []string {
-	return []string{"DestSe", "Vo", "Activity", "SourceSe"}
-}
-
 func (info *SchedInfoProvider) GetWeight(route []string) float32 {
 	// TODO: Access config
 	return 1.0

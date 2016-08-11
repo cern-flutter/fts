@@ -24,6 +24,7 @@ import (
 	"gitlab.cern.ch/flutter/fts/version"
 	"gitlab.cern.ch/flutter/stomp"
 	"net/http"
+	"time"
 )
 
 type GatewayRPC struct {
@@ -66,6 +67,7 @@ func (c *GatewayRPC) Ping(r *http.Request, args *string, reply *PingReply) error
 // nBatches is the total number of subsets the original task has been split into.
 func (c *GatewayRPC) Submit(r *http.Request, set *tasks.Batch, nBatches *int) error {
 	l := log.WithField("delegation_id", set.DelegationID)
+	set.Timestamp = time.Now()
 	normalized := set.Normalize()
 	*nBatches = len(normalized)
 	l = l.WithField("count", *nBatches)
