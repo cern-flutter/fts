@@ -73,7 +73,9 @@ func (r *Runner) Run() error {
 						// TODO: Notify failure
 					} else {
 						log.Info("Spawn with pid ", pid)
-						// TODO: Store PID
+						if err := r.Context.supervisor.RegisterProcess(&batch, pid); err != nil {
+							log.WithError(err).Error("Failed to register batch into local DB")
+						}
 					}
 				} else {
 					log.WithField("batch", batch.GetID()).Info("Ignoring batch in state ", batch.State)

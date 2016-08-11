@@ -17,10 +17,11 @@
 package worker
 
 import (
+	"encoding/json"
 	log "github.com/Sirupsen/logrus"
 	"github.com/satori/go.uuid"
 	"gitlab.cern.ch/flutter/fts/config"
-	"gitlab.cern.ch/flutter/fts/errors"
+	"gitlab.cern.ch/flutter/fts/types/tasks"
 	"gitlab.cern.ch/flutter/stomp"
 )
 
@@ -57,7 +58,16 @@ func (k *Killer) Run() error {
 			if !ok {
 				return nil
 			}
-			log.WithError(errors.ErrNotImplemented).Info("Got kill signal:", m.Headers)
+			var kill tasks.Kill
+			if err := json.Unmarshal(m.Body, &kill); err != nil {
+				log.WithError(err).Error("Malformed kill message")
+			} else {
+				log.Info("Got kill signal")
+				pids := k.Context.supervisor.GetPidsForKillTask(&kill)
+				for _, pid := range pids {
+					k.Context.supervisor.Kill(pid)
+				}
+			}
 		case error, ok := <-errorChannel:
 			if !ok {
 				return nil

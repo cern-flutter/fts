@@ -43,6 +43,7 @@ var workerCmd = &cobra.Command{
 			URLCopyBin:      viper.Get("worker.urlcopy").(string),
 			TransferLogPath: viper.Get("worker.transfers.logs").(string),
 			DirQPath:        viper.Get("worker.dirq").(string),
+			PidDBPath:       viper.Get("worker.piddb").(string),
 			StompParams: stomp.ConnectionParameters{
 				ClientId: "fts-workerd-" + util.Hostname(),
 				Address:  viper.Get("stomp").(string),
@@ -88,6 +89,7 @@ func main() {
 	workerCmd.Flags().String("Log", "", "Log file")
 	workerCmd.Flags().String("X509d", "http://localhost:42001/rpc", "X509 store rpc address")
 	workerCmd.Flags().String("DirQ", "/var/lib/fts", "Base directory for dirq messages")
+	workerCmd.Flags().String("PidDB", "/var/lib/fts/pid.db", "PID database")
 	workerCmd.Flags().String("UrlCopy", "url-copy", "url-copy command")
 	workerCmd.Flags().String("TransfersLogDir", "/var/log/fts/transfers", "Transfer logs base dir")
 	workerCmd.Flags().Bool("Debug", true, "Enable debugging")
@@ -95,6 +97,7 @@ func main() {
 	viper.BindPFlag("worker.log", workerCmd.Flags().Lookup("Log"))
 	viper.BindPFlag("worker.x509d", workerCmd.Flags().Lookup("X509d"))
 	viper.BindPFlag("worker.dirq", workerCmd.Flags().Lookup("DirQ"))
+	viper.BindPFlag("worker.piddb", workerCmd.Flags().Lookup("PidDB"))
 	viper.BindPFlag("worker.urlcopy", workerCmd.Flags().Lookup("UrlCopy"))
 	viper.BindPFlag("worker.transfers.logs", workerCmd.Flags().Lookup("TransfersLogDir"))
 	viper.BindPFlag("worker.debug", workerCmd.Flags().Lookup("Debug"))

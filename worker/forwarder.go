@@ -17,9 +17,11 @@
 package worker
 
 import (
+	"encoding/json"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"gitlab.cern.ch/flutter/fts/config"
+	"gitlab.cern.ch/flutter/fts/types/tasks"
 	"gitlab.cern.ch/flutter/go-dirq"
 	"gitlab.cern.ch/flutter/stomp"
 	"path"
@@ -104,6 +106,13 @@ func (f *Forwarder) forwardEnd() error {
 		if end.Error != nil {
 			return end.Error
 		}
+
+		batch := tasks.Batch{}
+		if err := json.Unmarshal(end.Message, &batch); err != nil {
+			log.WithError(err).Warn("Failed to parse end message")
+			continue
+		}
+
 		if err := f.producer.Send(
 			config.TransferTopic,
 			string(end.Message),

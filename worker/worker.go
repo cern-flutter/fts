@@ -31,12 +31,14 @@ type (
 		TransferLogPath string
 		DirQPath        string
 		X509Address     string
+		PidDBPath       string
 	}
 
-	// Context is used by each subsystem
+	// Worker is used by each subsystem
 	Worker struct {
-		params Params
-		x509d  *rpc.Client
+		params     Params
+		x509d      *rpc.Client
+		supervisor *Supervisor
 	}
 
 	// Reply coming from the credential service
@@ -51,6 +53,11 @@ func New(params Params) (w *Worker, err error) {
 	w = &Worker{
 		params: params,
 	}
+
+	if w.supervisor, err = NewSupervisor(params.PidDBPath); err != nil {
+		return nil, err
+	}
+	log.Debugf("Started supervisor with DB %s", params.PidDBPath)
 
 	codec, err := http_jsonrpc.NewClientCodec(params.X509Address)
 	if err != nil {
@@ -70,6 +77,7 @@ func New(params Params) (w *Worker, err error) {
 // Close finalizes all the connections and processes
 func (c *Worker) Close() {
 	c.x509d.Close()
+	c.supervisor.Close()
 }
 
 // Run sub-services, and return a channel where errors are written
@@ -84,6 +92,9 @@ func (c *Worker) Run() <-chan error {
 	}()
 	go func() {
 		errors <- (&Forwarder{Context: c}).Run()
+	}()
+	go func() {
+		c.supervisor.Run()
 	}()
 
 	return errors
