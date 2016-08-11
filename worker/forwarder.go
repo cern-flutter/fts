@@ -29,7 +29,7 @@ import (
 type (
 	// Forwarder subsystem sends local messages to the global bus
 	Forwarder struct {
-		Context          *Context
+		Context          *Worker
 		producer         *stomp.Producer
 		start, end, perf *dirq.Dirq
 	}
@@ -59,15 +59,6 @@ func (f *Forwarder) Run() error {
 		}
 		time.Sleep(5 * time.Second)
 	}
-}
-
-// Go executes the Forwarder subroutine as a goroutine
-func (f *Forwarder) Go() <-chan error {
-	c := make(chan error)
-	go func() {
-		c <- f.Run()
-	}()
-	return c
 }
 
 // subscribeLocalQueues subscribes to local directory queues

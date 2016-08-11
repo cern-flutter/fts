@@ -28,7 +28,7 @@ import (
 type (
 	// Runner subsystem gets batches and runs the corresponding url-copy
 	Runner struct {
-		Context  *Context
+		Context  *Worker
 		consumer *stomp.Consumer
 	}
 )
@@ -86,16 +86,4 @@ func (r *Runner) Run() error {
 			log.WithError(error).Warn("Got an error from the subcription channel")
 		}
 	}
-}
-
-// Go executes the Runner subroutine as a goroutine
-func (r *Runner) Go() <-chan error {
-	c := make(chan error)
-	go func() {
-		if err := r.Run(); err != nil {
-			c <- err
-		}
-		close(c)
-	}()
-	return c
 }

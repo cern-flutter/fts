@@ -32,7 +32,7 @@ var workerCmd = &cobra.Command{
 	Short: "FTS Worker",
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
-		var context *worker.Context
+		var w *worker.Worker
 
 		reconnectWait := viper.Get("stomp.reconnect.wait").(int)
 		reconnectMaxRetries := viper.Get("stomp.reconnect.retry").(int)
@@ -64,25 +64,14 @@ var workerCmd = &cobra.Command{
 				},
 			}}
 
-		if context, err = worker.New(params); err != nil {
+		if w, err = worker.New(params); err != nil {
 			log.Fatal("Could not create a worker context: ", err)
 		}
-		defer context.Close()
+		defer w.Close()
 
-		runner := (&worker.Runner{Context: context}).Go()
-		killer := (&worker.Killer{Context: context}).Go()
-		forwarder := (&worker.Forwarder{Context: context}).Go()
-
-		log.Info("All subservices started")
-		for {
-			select {
-			case e := <-runner:
-				log.Fatal("Runner service failed with ", e)
-			case e := <-killer:
-				log.Error("Killer service failed with ", e)
-			case e := <-forwarder:
-				log.Fatal("Forwarder service failed with ", e)
-			}
+		errors := w.Run()
+		for e := range errors {
+			log.Fatal("Worker fatal error:", e)
 		}
 	},
 }

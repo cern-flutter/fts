@@ -21,4 +21,5 @@ const (
 	PerformanceTopic = "/topic/fts.performance"
 	SchedulerQueue   = "/queue/Consumer.scheduler.fts.transfer"
 	WorkerQueue      = "/queue/Consumer.worker.fts.transfer"
+	KillTopic        = "/topic/fts.kill"
 )

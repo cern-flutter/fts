@@ -68,7 +68,7 @@ func writeTaskSet(task *tasks.Batch, path string) error {
 }
 
 // RunTransfer spawns a new url-copy, and returns its pid on success
-func RunTransfer(c *Context, task *tasks.Batch) (int, error) {
+func RunTransfer(c *Worker, task *tasks.Batch) (int, error) {
 	var proxy x509.Proxy
 	err := c.x509d.Call("X509.Get", &task.DelegationID, &proxy)
 	if err != nil {

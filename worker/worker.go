@@ -34,7 +34,7 @@ type (
 	}
 
 	// Context is used by each subsystem
-	Context struct {
+	Worker struct {
 		params Params
 		x509d  *rpc.Client
 	}
@@ -47,8 +47,8 @@ type (
 )
 
 // New creates a new Worker Context
-func New(params Params) (context *Context, err error) {
-	context = &Context{
+func New(params Params) (w *Worker, err error) {
+	w = &Worker{
 		params: params,
 	}
 
@@ -56,10 +56,10 @@ func New(params Params) (context *Context, err error) {
 	if err != nil {
 		return
 	}
-	context.x509d = rpc.NewClientWithCodec(codec)
+	w.x509d = rpc.NewClientWithCodec(codec)
 
 	var x509Reply pingReply
-	if err = context.x509d.Call("X509.Ping", "Echo", &x509Reply); err != nil {
+	if err = w.x509d.Call("X509.Ping", "Echo", &x509Reply); err != nil {
 		return
 	}
 
@@ -68,6 +68,23 @@ func New(params Params) (context *Context, err error) {
 }
 
 // Close finalizes all the connections and processes
-func (c *Context) Close() {
+func (c *Worker) Close() {
 	c.x509d.Close()
+}
+
+// Run sub-services, and return a channel where errors are written
+func (c *Worker) Run() <-chan error {
+	errors := make(chan error, 10)
+
+	go func() {
+		errors <- (&Runner{Context: c}).Run()
+	}()
+	go func() {
+		errors <- (&Killer{Context: c}).Run()
+	}()
+	go func() {
+		errors <- (&Forwarder{Context: c}).Run()
+	}()
+
+	return errors
 }

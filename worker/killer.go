@@ -17,26 +17,52 @@
 package worker
 
 import (
+	log "github.com/Sirupsen/logrus"
+	"github.com/satori/go.uuid"
+	"gitlab.cern.ch/flutter/fts/config"
 	"gitlab.cern.ch/flutter/fts/errors"
+	"gitlab.cern.ch/flutter/stomp"
 )
 
 type (
 	// Killer subsystem listen for cancellations, and kill local processes if needed
 	Killer struct {
-		Context *Context
+		Context  *Worker
+		consumer *stomp.Consumer
 	}
 )
 
 // Run executes the Killer subroutine
 func (k *Killer) Run() error {
-	return errors.ErrNotImplemented
-}
+	var err error
 
-// Go executes the Killer subroutine as a goroutine
-func (k *Killer) Go() <-chan error {
-	c := make(chan error)
-	go func() {
-		c <- k.Run()
-	}()
-	return c
+	if k.consumer, err = stomp.NewConsumer(k.Context.params.StompParams); err != nil {
+		return err
+	}
+
+	var killChannel <-chan stomp.Message
+	var errorChannel <-chan error
+	if killChannel, errorChannel, err = k.consumer.Subscribe(
+		config.KillTopic,
+		"fts-worker-"+uuid.NewV4().String(),
+		stomp.AckAuto,
+	); err != nil {
+		return err
+	}
+
+	log.Info("Killer started")
+	for {
+		select {
+		case m, ok := <-killChannel:
+			if !ok {
+				return nil
+			}
+			log.WithError(errors.ErrNotImplemented).Info("Got kill signal:", m.Headers)
+		case error, ok := <-errorChannel:
+			if !ok {
+				return nil
+			}
+			log.WithError(error).Warn("Got an error from the subcription channel")
+		}
+	}
 }
