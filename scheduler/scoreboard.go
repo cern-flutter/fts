@@ -61,6 +61,7 @@ func availableSlots(conn redis.Conn, keys ...string) (bool, error) {
 // IsThereAvailableSlots returns true if there can be a new transfer for the given route
 func (info *Scoreboard) IsThereAvailableSlots(route []string) (bool, error) {
 	conn := info.pool.Get()
+	defer conn.Close()
 
 	switch len(route) {
 	// Root node, overall FTS, so there are slots
@@ -118,6 +119,7 @@ func decreaseSlots(conn redis.Conn, keys ...string) error {
 // and link.
 func (info *Scoreboard) ConsumeSlot(batch *tasks.Batch) error {
 	conn := info.pool.Get()
+	defer conn.Close()
 	if err := decreaseSlots(conn, batch.SourceSe); err != nil {
 		return err
 	}
@@ -147,6 +149,7 @@ func increaseSlots(conn redis.Conn, keys ...string) error {
 // and link.
 func (info *Scoreboard) ReleaseSlot(batch *tasks.Batch) error {
 	conn := info.pool.Get()
+	defer conn.Close()
 	if err := increaseSlots(conn, batch.SourceSe); err != nil {
 		return err
 	}
