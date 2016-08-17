@@ -24,7 +24,9 @@ import (
 )
 
 const (
+	// DefaultSlots is the number of parallel transfers by default
 	DefaultSlots = 2
+	// KeySeparator is used to join scoreboard keys together
 	KeySeparator = "#"
 )
 
@@ -38,6 +40,7 @@ type (
 	//ts.DestSe, ts.Vo, ts.Activity, ts.SourceSe
 )
 
+// GetWeight returns the weight of the given route
 func (info *Scoreboard) GetWeight(route []string) float32 {
 	// TODO: Access config
 	return 1.0
@@ -46,15 +49,16 @@ func (info *Scoreboard) GetWeight(route []string) float32 {
 func availableSlots(conn redis.Conn, keys ...string) (bool, error) {
 	key := strings.Join(keys, KeySeparator)
 	l := log.WithField("key", key)
-	if slots, err := redis.Int(conn.Do("GET", key)); err == redis.ErrNil {
+	slots, err := redis.Int(conn.Do("GET", key))
+	if err == redis.ErrNil {
 		l.Debug("No entry, assuming there are available slots")
 		return true, nil
-	} else {
-		l.WithField("slots", slots).Debug("Available slots")
-		return slots > 0, nil
 	}
+	l.WithField("slots", slots).Debug("Available slots")
+	return slots > 0, nil
 }
 
+// IsThereAvailableSlots returns true if there can be a new transfer for the given route
 func (info *Scoreboard) IsThereAvailableSlots(route []string) (bool, error) {
 	conn := info.pool.Get()
 
@@ -110,6 +114,8 @@ func decreaseSlots(conn redis.Conn, keys ...string) error {
 	return nil
 }
 
+// ConsumeSlot reduces by one the number of available slots for the source, destination,
+// and link.
 func (info *Scoreboard) ConsumeSlot(batch *tasks.Batch) error {
 	conn := info.pool.Get()
 	if err := decreaseSlots(conn, batch.SourceSe); err != nil {
@@ -137,6 +143,8 @@ func increaseSlots(conn redis.Conn, keys ...string) error {
 	return nil
 }
 
+// ReleaseSlot increases by one the number of available slots for the source, destination,
+// and link.
 func (info *Scoreboard) ReleaseSlot(batch *tasks.Batch) error {
 	conn := info.pool.Get()
 	if err := increaseSlots(conn, batch.SourceSe); err != nil {

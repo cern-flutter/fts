@@ -88,7 +88,6 @@ func (s *Scheduler) Close() {
 	s.pool.Close()
 }
 
-
 // Run spawns required subservices and waits for them
 func (s *Scheduler) Run() error {
 	errors := make(chan error, 10)
@@ -100,5 +99,5 @@ func (s *Scheduler) Run() error {
 		errors <- s.RunProducer()
 	}()
 
-	return <- errors
+	return <-errors
 }

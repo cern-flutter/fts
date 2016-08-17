@@ -26,12 +26,12 @@ import (
 	"gitlab.cern.ch/flutter/stomp"
 )
 
-// Run the scheduler consumer
+// RunConsumer runs the scheduler consumer
 func (s *Scheduler) RunConsumer() error {
-	consumerId := fmt.Sprint("fts-scheduler-", uuid.NewV4().String())
+	consumerID := fmt.Sprint("fts-scheduler-", uuid.NewV4().String())
 	taskChannel, errorChannel, err := s.consumer.Subscribe(
 		config.SchedulerQueue,
-		consumerId,
+		consumerID,
 		stomp.AckIndividual,
 	)
 	if err != nil {

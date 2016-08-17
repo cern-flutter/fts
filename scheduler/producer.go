@@ -26,7 +26,7 @@ import (
 	"time"
 )
 
-// Run the scheduler producer
+// RunProducer runs the scheduler producer
 func (s *Scheduler) RunProducer() error {
 	sendParams := stomp.SendParams{Persistent: true, ContentType: "application/json"}
 
