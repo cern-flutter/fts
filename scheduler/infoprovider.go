@@ -26,12 +26,7 @@ func (info *SchedInfoProvider) GetWeight(route []string) float32 {
 	return 1.0
 }
 
-func (info *SchedInfoProvider) GetAvailableSlots(route []string) (int, error) {
+func (info *SchedInfoProvider) IsThereAvailableSlots(route []string) (bool, error) {
 	// TODO: Keep accounting
-	return 1, nil
-}
-
-func (info *SchedInfoProvider) ConsumeSlot(route []string) error {
-	// TODO: Keep accounting
-	return nil
+	return true, nil
 }

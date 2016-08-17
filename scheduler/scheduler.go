@@ -43,10 +43,14 @@ func New(params stomp.ConnectionParameters, echelonDir string) (*Scheduler, erro
 	if sched.consumer, err = stomp.NewConsumer(params); err != nil {
 		return nil, err
 	}
-	if sched.echelon, err = echelon.New(echelonDir, &SchedInfoProvider{}); err != nil {
+	db, err := echelon.NewLevelDb(echelonDir)
+	if err != nil {
 		return nil, err
 	}
-	if err = sched.echelon.Restore(&tasks.Batch{}); err != nil {
+	if sched.echelon, err = echelon.New(&tasks.Batch{}, db, &SchedInfoProvider{}); err != nil {
+		return nil, err
+	}
+	if err = sched.echelon.Restore(); err != nil {
 		return nil, err
 	}
 	return sched, nil
