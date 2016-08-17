@@ -28,6 +28,9 @@ const (
 	DefaultSlots = 2
 	// KeySeparator is used to join scoreboard keys together
 	KeySeparator = "#"
+
+	fieldCounter = "counter"
+	fieldMax     = "max"
 )
 
 type (
@@ -49,13 +52,24 @@ func (info *Scoreboard) GetWeight(route []string) float32 {
 func availableSlots(conn redis.Conn, keys ...string) (bool, error) {
 	key := strings.Join(keys, KeySeparator)
 	l := log.WithField("key", key)
-	slots, err := redis.Int(conn.Do("GET", key))
-	if err == redis.ErrNil {
-		l.Debug("No entry, assuming there are available slots")
-		return true, nil
+
+	values, err := redis.Values(conn.Do("HMGET", key, fieldCounter, fieldMax))
+	if err != nil {
+		return false, err
 	}
-	l.WithField("slots", slots).Debug("Available slots")
-	return slots > 0, nil
+
+	var count, max int
+	if _, err := redis.Scan(values, &count, &max); err != nil {
+		return false, err
+	}
+
+	if max == 0 {
+		l.Debug("No entry, assuming there are available slots")
+		_, err := conn.Do("HSET", key, fieldMax, DefaultSlots)
+		return true, err
+	}
+	l.WithFields(log.Fields{"slots": max, "count": count}).Debug("Available slots")
+	return count < max, nil
 }
 
 // IsThereAvailableSlots returns true if there can be a new transfer for the given route
@@ -89,29 +103,16 @@ func (info *Scoreboard) IsThereAvailableSlots(route []string) (bool, error) {
 	return true, nil
 }
 
-func decreaseSlots(conn redis.Conn, keys ...string) error {
+func increaseActiveCount(conn redis.Conn, keys ...string) error {
 	key := strings.Join(keys, KeySeparator)
 	l := log.WithField("key", key)
 
-	if _, err := redis.Int(conn.Do("GET", key)); err == redis.ErrNil {
-		if _, err := conn.Do("SET", key, DefaultSlots); err != nil {
-			return err
-		}
-	} else if err != nil {
-		return err
-	}
-	newSlots, err := redis.Int(conn.Do("DECR", key))
+	newCount, err := redis.Int(conn.Do("HINCRBY", key, fieldCounter, 1))
 	if err != nil {
 		return err
 	}
 
-	if newSlots < 0 {
-		l.Error("After a decrease, the key has a negative value!")
-		conn.Do("SET", key, 0)
-	} else {
-		l.WithField("slots", newSlots).Debug("Decrease slots")
-	}
-
+	l.WithField("count", newCount).Debug("Increment active count")
 	return nil
 }
 
@@ -120,28 +121,33 @@ func decreaseSlots(conn redis.Conn, keys ...string) error {
 func (info *Scoreboard) ConsumeSlot(batch *tasks.Batch) error {
 	conn := info.pool.Get()
 	defer conn.Close()
-	if err := decreaseSlots(conn, batch.SourceSe); err != nil {
+	if err := increaseActiveCount(conn, batch.SourceSe); err != nil {
 		return err
 	}
-	if err := decreaseSlots(conn, batch.DestSe); err != nil {
+	if err := increaseActiveCount(conn, batch.DestSe); err != nil {
 		return err
 	}
-	if err := decreaseSlots(conn, batch.SourceSe, batch.DestSe); err != nil {
+	if err := increaseActiveCount(conn, batch.SourceSe, batch.DestSe); err != nil {
 		return err
 	}
 	return nil
 }
 
-func increaseSlots(conn redis.Conn, keys ...string) error {
+func decreaseActiveCount(conn redis.Conn, keys ...string) error {
 	key := strings.Join(keys, KeySeparator)
 	l := log.WithField("key", key)
 
-	newSlots, err := redis.Int(conn.Do("INCR", key))
+	newCount, err := redis.Int(conn.Do("HINCRBY", key, fieldCounter, -1))
 	if err != nil {
 		return err
 	}
+	if newCount < 0 {
+		l.Warn("New active counter below 0, reset value")
+		newCount = 0
+		conn.Do("HSET", key, fieldCounter, newCount)
+	}
 
-	l.WithField("slots", newSlots).Debug("Increase slots")
+	l.WithField("count", newCount).Debug("Decrement active count")
 	return nil
 }
 
@@ -150,13 +156,13 @@ func increaseSlots(conn redis.Conn, keys ...string) error {
 func (info *Scoreboard) ReleaseSlot(batch *tasks.Batch) error {
 	conn := info.pool.Get()
 	defer conn.Close()
-	if err := increaseSlots(conn, batch.SourceSe); err != nil {
+	if err := decreaseActiveCount(conn, batch.SourceSe); err != nil {
 		return err
 	}
-	if err := increaseSlots(conn, batch.DestSe); err != nil {
+	if err := decreaseActiveCount(conn, batch.DestSe); err != nil {
 		return err
 	}
-	if err := increaseSlots(conn, batch.SourceSe, batch.DestSe); err != nil {
+	if err := decreaseActiveCount(conn, batch.SourceSe, batch.DestSe); err != nil {
 		return err
 	}
 	return nil
