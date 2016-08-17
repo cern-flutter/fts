@@ -54,7 +54,7 @@ var scheddCmd = &cobra.Command{
 					reconnectRetries = 0
 				}
 			},
-		}, viper.Get("schedd.db").(string))
+		}, viper.Get("schedd.redis").(string))
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -77,7 +77,7 @@ var scheddCmd = &cobra.Command{
 func main() {
 	// Config file
 	configFile := scheddCmd.Flags().String("Config", "", "Use configuration from this file")
-	scheddCmd.Flags().String("EchelonDir", "/var/lib/fts/echelon", "Echelon persistency dir")
+	scheddCmd.Flags().String("Redis", "localhost:6379", "Redis host and port")
 
 	// Stomp flags
 	config.BindStompFlags(scheddCmd)
@@ -87,7 +87,7 @@ func main() {
 	scheddCmd.Flags().Bool("Debug", true, "Enable debugging")
 	viper.BindPFlag("schedd.log", scheddCmd.Flags().Lookup("Log"))
 	viper.BindPFlag("schedd.debug", scheddCmd.Flags().Lookup("Debug"))
-	viper.BindPFlag("schedd.db", scheddCmd.Flags().Lookup("EchelonDir"))
+	viper.BindPFlag("schedd.redis", scheddCmd.Flags().Lookup("Redis"))
 
 	cobra.OnInitialize(func() {
 		if *configFile != "" {

@@ -17,9 +17,12 @@
 package scheduler
 
 import (
+	log "github.com/Sirupsen/logrus"
+	"github.com/garyburd/redigo/redis"
 	"gitlab.cern.ch/flutter/echelon"
 	"gitlab.cern.ch/flutter/fts/types/tasks"
 	"gitlab.cern.ch/flutter/stomp"
+	"time"
 )
 
 type (
@@ -29,11 +32,12 @@ type (
 		consumer *stomp.Consumer
 
 		echelon *echelon.Echelon
+		pool    *redis.Pool
 	}
 )
 
 // New creates a new scheduler
-func New(params stomp.ConnectionParameters, echelonDir string) (*Scheduler, error) {
+func New(params stomp.ConnectionParameters, redisAddr string) (*Scheduler, error) {
 	var err error
 	sched := &Scheduler{}
 
@@ -43,11 +47,25 @@ func New(params stomp.ConnectionParameters, echelonDir string) (*Scheduler, erro
 	if sched.consumer, err = stomp.NewConsumer(params); err != nil {
 		return nil, err
 	}
-	db, err := echelon.NewLevelDb(echelonDir)
-	if err != nil {
-		return nil, err
+	echelonRedis := &echelon.RedisDb{
+		Pool: &redis.Pool{
+			Dial: func() (redis.Conn, error) {
+				log.Debug("Dial Redis connection")
+				return redis.Dial("tcp", redisAddr)
+			},
+			TestOnBorrow: func(c redis.Conn, t time.Time) error {
+				_, err := c.Do("PING")
+				return err
+			},
+			MaxIdle:     10,
+			MaxActive:   50,
+			IdleTimeout: 60 * time.Second,
+			Wait:        true,
+		},
+		Prefix: "fts-sched-",
 	}
-	if sched.echelon, err = echelon.New(&tasks.Batch{}, db, &SchedInfoProvider{}); err != nil {
+
+	if sched.echelon, err = echelon.New(&tasks.Batch{}, echelonRedis, &SchedInfoProvider{}); err != nil {
 		return nil, err
 	}
 	if err = sched.echelon.Restore(); err != nil {

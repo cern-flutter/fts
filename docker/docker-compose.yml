@@ -15,6 +15,12 @@ broker:
     - "8161:8161"
     - "61613:61613"
 
+redis:
+  image: redis
+  container_name: redis
+  ports:
+    - "6379:6379"
+
 worker:
   image: docker.cern.ch/flutter-dev/worker
   links:
@@ -27,6 +33,7 @@ sched:
   image: docker.cern.ch/flutter-dev/sched
   links:
     - broker
+    - redis
   env_file:
     dev.env
 
