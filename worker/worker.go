@@ -81,7 +81,7 @@ func (c *Worker) Close() {
 }
 
 // Run sub-services, and return a channel where errors are written
-func (c *Worker) Run() <-chan error {
+func (c *Worker) Run() error {
 	errors := make(chan error, 10)
 
 	go func() {
@@ -97,5 +97,5 @@ func (c *Worker) Run() <-chan error {
 		c.supervisor.Run()
 	}()
 
-	return errors
+	return <- errors
 }

@@ -70,9 +70,8 @@ var workerCmd = &cobra.Command{
 		}
 		defer w.Close()
 
-		errors := w.Run()
-		for e := range errors {
-			log.Fatal("Worker fatal error:", e)
+		if err := w.Run(); err != nil {
+			log.Fatal("Worker fatal error: ", err)
 		}
 	},
 }
