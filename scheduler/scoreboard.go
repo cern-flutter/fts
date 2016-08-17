@@ -16,17 +16,137 @@
 
 package scheduler
 
-type (
-	SchedInfoProvider struct {
-	}
+import (
+	log "github.com/Sirupsen/logrus"
+	"github.com/garyburd/redigo/redis"
+	"gitlab.cern.ch/flutter/fts/types/tasks"
+	"strings"
 )
 
-func (info *SchedInfoProvider) GetWeight(route []string) float32 {
+const (
+	DefaultSlots = 2
+	KeySeparator = "#"
+)
+
+type (
+	// Scoreboard implements accounting on the number of transfer running
+	// for a given source/destination/pair
+	Scoreboard struct {
+		pool *redis.Pool
+	}
+
+	//ts.DestSe, ts.Vo, ts.Activity, ts.SourceSe
+)
+
+func (info *Scoreboard) GetWeight(route []string) float32 {
 	// TODO: Access config
 	return 1.0
 }
 
-func (info *SchedInfoProvider) IsThereAvailableSlots(route []string) (bool, error) {
-	// TODO: Keep accounting
+func availableSlots(conn redis.Conn, keys ...string) (bool, error) {
+	key := strings.Join(keys, KeySeparator)
+	l := log.WithField("key", key)
+	if slots, err := redis.Int(conn.Do("GET", key)); err == redis.ErrNil {
+		l.Debug("No entry, assuming there are available slots")
+		return true, nil
+	} else {
+		l.WithField("slots", slots).Debug("Available slots")
+		return slots > 0, nil
+	}
+}
+
+func (info *Scoreboard) IsThereAvailableSlots(route []string) (bool, error) {
+	conn := info.pool.Get()
+
+	switch len(route) {
+	// Root node, overall FTS, so there are slots
+	case 0:
+		return true, nil
+	// Destination storage
+	case 1:
+		return availableSlots(conn, route[0])
+	// Destination/Vo, we do not have slots per vo, so always available
+	case 2:
+		return true, nil
+	// Destination/Vo/Activity, still no cap per activity
+	case 3:
+		return true, nil
+	// Destination/Vo/Activity/Source, we get two caps: link and source
+	case 4:
+		if forSource, err := availableSlots(conn, route[3]); err != nil {
+			return false, err
+		} else if forLink, err := availableSlots(conn, route[3], route[0]); err != nil {
+			return false, err
+		} else {
+			return forSource && forLink, nil
+		}
+	}
 	return true, nil
+}
+
+func decreaseSlots(conn redis.Conn, keys ...string) error {
+	key := strings.Join(keys, KeySeparator)
+	l := log.WithField("key", key)
+
+	if _, err := redis.Int(conn.Do("GET", key)); err == redis.ErrNil {
+		if _, err := conn.Do("SET", key, DefaultSlots); err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+	newSlots, err := redis.Int(conn.Do("DECR", key))
+	if err != nil {
+		return err
+	}
+
+	if newSlots < 0 {
+		l.Error("After a decrease, the key has a negative value!")
+		conn.Do("SET", key, 0)
+	} else {
+		l.WithField("slots", newSlots).Debug("Decrease slots")
+	}
+
+	return nil
+}
+
+func (info *Scoreboard) ConsumeSlot(batch *tasks.Batch) error {
+	conn := info.pool.Get()
+	if err := decreaseSlots(conn, batch.SourceSe); err != nil {
+		return err
+	}
+	if err := decreaseSlots(conn, batch.DestSe); err != nil {
+		return err
+	}
+	if err := decreaseSlots(conn, batch.SourceSe, batch.DestSe); err != nil {
+		return err
+	}
+	return nil
+}
+
+func increaseSlots(conn redis.Conn, keys ...string) error {
+	key := strings.Join(keys, KeySeparator)
+	l := log.WithField("key", key)
+
+	newSlots, err := redis.Int(conn.Do("INCR", key))
+	if err != nil {
+		return err
+	}
+
+	l.WithField("slots", newSlots).Debug("Increase slots")
+	return nil
+}
+
+func (info *Scoreboard) ReleaseSlot(batch *tasks.Batch) error {
+	conn := info.pool.Get()
+	if err := increaseSlots(conn, batch.SourceSe); err != nil {
+		return err
+	}
+	if err := increaseSlots(conn, batch.DestSe); err != nil {
+		return err
+	}
+	if err := increaseSlots(conn, batch.SourceSe, batch.DestSe); err != nil {
+		return err
+	}
+	return nil
 }

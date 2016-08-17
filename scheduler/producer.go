@@ -30,24 +30,36 @@ import (
 func (s *Scheduler) RunProducer() error {
 	sendParams := stomp.SendParams{Persistent: true, ContentType: "application/json"}
 
-	for {
+	log.Info("Producer started")
 
+	for {
 		var err error
 		batch := &tasks.Batch{}
 		for err = s.echelon.Dequeue(batch); err == nil; err = s.echelon.Dequeue(batch) {
 			l := log.WithField("batch", batch.GetID())
-
 			batch.State = tasks.BatchReady
 
-			if data, err := json.Marshal(batch); err != nil {
-				l.Error(err)
+			var data []byte
+			if data, err = json.Marshal(batch); err != nil {
+				l.WithError(err).Error("Failed to marshal task")
 				continue
-			} else if err = s.producer.Send(config.TransferTopic, string(data), sendParams); err != nil {
-				l.Error(err)
-				break
 			}
-			for _, t := range batch.Transfers {
-				l.Info("Scheduled ", t.JobID, "/", t.TransferID)
+
+			if err := s.scoreboard.ConsumeSlot(batch); err != nil {
+				l.WithError(err).Error("Failed to mark task as busy")
+			} else if err = s.producer.Send(config.TransferTopic, string(data), sendParams); err != nil {
+				l.WithError(err).Error("Failed to send the batch to que message queue")
+			}
+
+			if err != nil {
+				l.Warn("Trying to requeue the batch")
+				if err = s.echelon.Enqueue(batch); err != nil {
+					l.Panic(err)
+				}
+			} else {
+				for _, t := range batch.Transfers {
+					l.Info("Scheduled ", t.JobID, "/", t.TransferID)
+				}
 			}
 		}
 
@@ -63,16 +75,4 @@ func (s *Scheduler) RunProducer() error {
 		// TODO: Make configurable the sleep interval
 		time.Sleep(15 * time.Second)
 	}
-}
-
-// Go runs the scheduler producer as a goroutine
-func (s *Scheduler) GoProducer() <-chan error {
-	c := make(chan error)
-	go func() {
-		if err := s.RunProducer(); err != nil {
-			c <- err
-		}
-		close(c)
-	}()
-	return c
 }

@@ -38,6 +38,8 @@ func (s *Scheduler) RunConsumer() error {
 		return err
 	}
 
+	log.Info("Consumer started")
+
 	for {
 		select {
 		case msg, ok := <-taskChannel:
@@ -53,13 +55,19 @@ func (s *Scheduler) RunConsumer() error {
 			l := log.WithField("batch", batch.GetID())
 
 			// We are only interested on SUBMITTED batches
-			if batch.State == tasks.BatchSubmitted {
+			switch batch.State {
+			case tasks.BatchSubmitted:
 				err = s.echelon.Enqueue(&batch)
 				if err != nil {
 					return err
 				}
 				l.Info("Enqueued batch job")
-			} else {
+			case tasks.BatchDone:
+				if err = s.scoreboard.ReleaseSlot(&batch); err != nil {
+					return err
+				}
+				l.Info("Batch job done, released slots")
+			default:
 				l.Debug("Ignoring batch with state ", batch.State)
 			}
 			msg.Ack()
@@ -70,16 +78,4 @@ func (s *Scheduler) RunConsumer() error {
 			log.WithError(error).Warn("Got an error from the subcription channel")
 		}
 	}
-}
-
-// Go runs the scheduler consumer as a goroutine
-func (s *Scheduler) GoConsumer() <-chan error {
-	c := make(chan error)
-	go func() {
-		if err := s.RunConsumer(); err != nil {
-			c <- err
-		}
-		close(c)
-	}()
-	return c
 }

@@ -59,16 +59,9 @@ var scheddCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 		defer sched.Close()
-		consumerErrors := sched.GoConsumer()
-		producerErrors := sched.GoProducer()
-		log.Info("All subservices started")
-		for {
-			select {
-			case e := <-consumerErrors:
-				log.Fatal("Scheduler consumer failed with ", e)
-			case e := <-producerErrors:
-				log.Fatal("Scheduler producer failed with ", e)
-			}
+
+		if err := sched.Run(); err != nil {
+			log.Fatal(err)
 		}
 	},
 }
