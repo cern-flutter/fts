@@ -39,9 +39,6 @@ build: $(BUILDDIR)
 	docker start -a flutter-build && docker cp "flutter-build:/go/bin" $(BUILDDIR)
 
 # Containers with the binaries
-docker-rest: build
-	docker build -t $(DOCKER_PREFIX)/rest -f docker/rest/Dockerfile .
-
 docker-sched: build
 	docker build -t $(DOCKER_PREFIX)/sched -f docker/scheduler/Dockerfile .
 
@@ -67,7 +64,7 @@ docker-broker: build
 	docker build -t $(DOCKER_PREFIX)/broker -f docker/broker/Dockerfile .
 
 docker-all: docker-broker docker-db \
-	docker-rest docker-publisher docker-store \
+	docker-publisher docker-store \
 	docker-worker docker-stager \
 	docker-sched docker-optimizer
 

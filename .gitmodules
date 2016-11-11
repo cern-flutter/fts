@@ -1,3 +1,0 @@
-[submodule "rest"]
-	path = rest
-	url = https://:@gitlab.cern.ch:8443/flutter/fts-rest.git 
