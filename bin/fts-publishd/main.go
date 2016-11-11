@@ -37,7 +37,7 @@ var publishCmd = cobra.Command{
 		reconnectRetries := 0
 
 		stompParams := stomp.ConnectionParameters{
-			ClientId: "fts-publishd-" + util.Hostname(),
+			ClientID: "fts-publishd-" + util.Hostname(),
 			Address:  viper.Get("stomp").(string),
 			Login:    viper.Get("stomp.login").(string),
 			Passcode: viper.Get("stomp.passcode").(string),

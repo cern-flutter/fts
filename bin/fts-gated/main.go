@@ -42,7 +42,7 @@ var gatedCmd = &cobra.Command{
 		reconnectRetries := 0
 
 		gateRPC, err := newRPC(stomp.ConnectionParameters{
-			ClientId: "fts-gated-" + util.Hostname(),
+			ClientID: "fts-gated-" + util.Hostname(),
 			Address:  viper.Get("stomp").(string),
 			Login:    viper.Get("stomp.login").(string),
 			Passcode: viper.Get("stomp.passcode").(string),

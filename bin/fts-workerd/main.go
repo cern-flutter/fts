@@ -45,7 +45,7 @@ var workerCmd = &cobra.Command{
 			DirQPath:        viper.Get("worker.dirq").(string),
 			PidDBPath:       viper.Get("worker.piddb").(string),
 			StompParams: stomp.ConnectionParameters{
-				ClientId: "fts-workerd-" + util.Hostname(),
+				ClientID: "fts-workerd-" + util.Hostname(),
 				Address:  viper.Get("stomp").(string),
 				Login:    viper.Get("stomp.login").(string),
 				Passcode: viper.Get("stomp.passcode").(string),

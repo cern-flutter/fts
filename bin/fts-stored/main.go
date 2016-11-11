@@ -37,7 +37,7 @@ var storeCmd = cobra.Command{
 		reconnectRetries := 0
 
 		stompParams := stomp.ConnectionParameters{
-			ClientId: "fts-stored-" + util.Hostname(),
+			ClientID: "fts-stored-" + util.Hostname(),
 			Address:  viper.Get("stomp").(string),
 			Login:    viper.Get("stomp.login").(string),
 			Passcode: viper.Get("stomp.passcode").(string),

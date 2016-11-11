@@ -36,7 +36,7 @@ var scheddCmd = &cobra.Command{
 		reconnectRetries := 0
 
 		sched, err := scheduler.New(stomp.ConnectionParameters{
-			ClientId: "fts-schedd-" + util.Hostname(),
+			ClientID: "fts-schedd-" + util.Hostname(),
 			Address:  viper.Get("stomp").(string),
 			Login:    viper.Get("stomp.login").(string),
 			Passcode: viper.Get("stomp.passcode").(string),

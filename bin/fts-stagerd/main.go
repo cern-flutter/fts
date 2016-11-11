@@ -37,7 +37,7 @@ var stagerCmd = cobra.Command{
 		reconnectRetries := 0
 
 		stompParams := stomp.ConnectionParameters{
-			ClientId: "fts-stagerd-" + util.Hostname(),
+			ClientID: "fts-stagerd-" + util.Hostname(),
 			Address:  viper.Get("stomp").(string),
 			Login:    viper.Get("stomp.login").(string),
 			Passcode: viper.Get("stomp.passcode").(string),

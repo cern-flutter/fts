@@ -37,7 +37,7 @@ var optimizerCmd = cobra.Command{
 		reconnectRetries := 0
 
 		stompParams := stomp.ConnectionParameters{
-			ClientId: "fts-optimizerd-" + util.Hostname(),
+			ClientID: "fts-optimizerd-" + util.Hostname(),
 			Address:  viper.Get("stomp").(string),
 			Login:    viper.Get("stomp.login").(string),
 			Passcode: viper.Get("stomp.passcode").(string),
