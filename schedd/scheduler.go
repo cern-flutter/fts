@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-package scheduler
+package main
 
 import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/garyburd/redigo/redis"
 	"gitlab.cern.ch/flutter/echelon"
-	"gitlab.cern.ch/flutter/fts/types/tasks"
 	"gitlab.cern.ch/flutter/stomp"
 	"time"
 )
@@ -37,8 +36,8 @@ type (
 	}
 )
 
-// New creates a new scheduler
-func New(params stomp.ConnectionParameters, redisAddr string) (*Scheduler, error) {
+// NewScheduler creates a new scheduler
+func NewScheduler(params stomp.ConnectionParameters, redisAddr string) (*Scheduler, error) {
 	var err error
 	sched := &Scheduler{}
 
@@ -71,7 +70,7 @@ func New(params stomp.ConnectionParameters, redisAddr string) (*Scheduler, error
 		Prefix: "fts-sched-",
 	}
 
-	if sched.echelon, err = echelon.New(&tasks.Batch{}, echelonRedis, sched.scoreboard); err != nil {
+	if sched.echelon, err = echelon.New(&BatchWrapped{}, echelonRedis, sched.scoreboard); err != nil {
 		return nil, err
 	}
 	if err = sched.echelon.Restore(); err != nil {

@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package scheduler
+package main
 
 import (
 	"encoding/json"
 	log "github.com/Sirupsen/logrus"
 	"gitlab.cern.ch/flutter/echelon"
 	"gitlab.cern.ch/flutter/fts/config"
-	"gitlab.cern.ch/flutter/fts/types/tasks"
+	"gitlab.cern.ch/flutter/fts/messages"
 	"gitlab.cern.ch/flutter/stomp"
 	"time"
 )
@@ -34,18 +34,18 @@ func (s *Scheduler) RunProducer() error {
 
 	for {
 		var err error
-		batch := &tasks.Batch{}
-		for err = s.echelon.Dequeue(batch); err == nil; err = s.echelon.Dequeue(batch) {
-			l := log.WithField("batch", batch.GetID())
-			batch.State = tasks.BatchReady
+		batchDecorated := &BatchWrapped{}
+		for err = s.echelon.Dequeue(batchDecorated); err == nil; err = s.echelon.Dequeue(batchDecorated) {
+			l := log.WithField("batch", batchDecorated.GetID())
+			batchDecorated.State = messages.Batch_READY
 
 			var data []byte
-			if data, err = json.Marshal(batch); err != nil {
+			if data, err = json.Marshal(batchDecorated); err != nil {
 				l.WithError(err).Error("Failed to marshal task")
 				continue
 			}
 
-			if err := s.scoreboard.ConsumeSlot(batch); err != nil {
+			if err := s.scoreboard.ConsumeSlot(&batchDecorated.Batch); err != nil {
 				l.WithError(err).Error("Failed to mark task as busy")
 			} else if err = s.producer.Send(config.TransferTopic, string(data), sendParams); err != nil {
 				l.WithError(err).Error("Failed to send the batch to que message queue")
@@ -53,12 +53,12 @@ func (s *Scheduler) RunProducer() error {
 
 			if err != nil {
 				l.Warn("Trying to requeue the batch")
-				if err = s.echelon.Enqueue(batch); err != nil {
+				if err = s.echelon.Enqueue(batchDecorated); err != nil {
 					l.Panic(err)
 				}
 			} else {
-				for _, t := range batch.Transfers {
-					l.Info("Scheduled ", t.JobID, "/", t.TransferID)
+				for _, t := range batchDecorated.Transfers {
+					l.Info("Scheduled ", t.JobId, "/", t.TransferId)
 				}
 			}
 		}

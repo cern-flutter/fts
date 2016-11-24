@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package scheduler
+package main
 
 import (
 	"encoding/json"
@@ -22,7 +22,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/satori/go.uuid"
 	"gitlab.cern.ch/flutter/fts/config"
-	"gitlab.cern.ch/flutter/fts/types/tasks"
+	"gitlab.cern.ch/flutter/fts/messages"
 	"gitlab.cern.ch/flutter/stomp"
 )
 
@@ -46,23 +46,23 @@ func (s *Scheduler) RunConsumer() error {
 			if !ok {
 				return nil
 			}
-			batch := tasks.Batch{}
+			batch := messages.Batch{}
 			if err = json.Unmarshal(msg.Body, &batch); err != nil {
 				msg.Nack()
 				log.WithError(err).Error("Could not parse batch")
 			}
 
-			l := log.WithField("batch", batch.GetID())
+			l := log.WithField("batch", batch.Timestamp)
 
 			// We are only interested on SUBMITTED batches
 			switch batch.State {
-			case tasks.BatchSubmitted:
-				err = s.echelon.Enqueue(&batch)
+			case messages.Batch_SUBMITTED:
+				err = s.echelon.Enqueue(&BatchWrapped{batch})
 				if err != nil {
 					return err
 				}
 				l.Info("Enqueued batch job")
-			case tasks.BatchDone:
+			case messages.Batch_DONE:
 				if err = s.scoreboard.ReleaseSlot(&batch); err != nil {
 					return err
 				}

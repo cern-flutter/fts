@@ -1,0 +1,22 @@
+flutter-db:
+  image: gitlab-registry.cern.ch/flutter/database:latest
+  env_file: dev.env
+  ports:
+    - "5432:5432"
+
+flutter-broker:
+  image: gitlab-registry.cern.ch/flutter/broker:latest
+  env_file: dev.env
+  ports:
+    - "8161:8161"
+    - "61613:61613"
+
+flutter-rest:
+  image: gitlab-registry.cern.ch/flutter/fts-rest:latest
+  links:
+    - flutter-db
+    - flutter-broker
+  env_file:
+    - dev.env
+  ports:
+    - "8446:8446"

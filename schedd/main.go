@@ -21,7 +21,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gitlab.cern.ch/flutter/fts/config"
-	"gitlab.cern.ch/flutter/fts/scheduler"
 	"gitlab.cern.ch/flutter/fts/util"
 	"gitlab.cern.ch/flutter/stomp"
 	"time"
@@ -35,7 +34,7 @@ var scheddCmd = &cobra.Command{
 		reconnectMaxRetries := viper.Get("stomp.reconnect.retry").(int)
 		reconnectRetries := 0
 
-		sched, err := scheduler.New(stomp.ConnectionParameters{
+		sched, err := NewScheduler(stomp.ConnectionParameters{
 			ClientID: "fts-schedd-" + util.Hostname(),
 			Address:  viper.Get("stomp").(string),
 			Login:    viper.Get("stomp.login").(string),

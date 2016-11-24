@@ -1,3 +1,3 @@
-fts-schedd
-==========
+schedd
+======
 FTS heart. Schedules transfers.

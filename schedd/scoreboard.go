@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package scheduler
+package main
 
 import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/garyburd/redigo/redis"
-	"gitlab.cern.ch/flutter/fts/types/tasks"
+	"gitlab.cern.ch/flutter/fts/messages"
 	"strings"
 )
 
@@ -118,7 +118,7 @@ func increaseActiveCount(conn redis.Conn, keys ...string) error {
 
 // ConsumeSlot reduces by one the number of available slots for the source, destination,
 // and link.
-func (info *Scoreboard) ConsumeSlot(batch *tasks.Batch) error {
+func (info *Scoreboard) ConsumeSlot(batch *messages.Batch) error {
 	conn := info.pool.Get()
 	defer conn.Close()
 	if err := increaseActiveCount(conn, batch.SourceSe); err != nil {
@@ -153,7 +153,7 @@ func decreaseActiveCount(conn redis.Conn, keys ...string) error {
 
 // ReleaseSlot increases by one the number of available slots for the source, destination,
 // and link.
-func (info *Scoreboard) ReleaseSlot(batch *tasks.Batch) error {
+func (info *Scoreboard) ReleaseSlot(batch *messages.Batch) error {
 	conn := info.pool.Get()
 	defer conn.Close()
 	if err := decreaseActiveCount(conn, batch.SourceSe); err != nil {
