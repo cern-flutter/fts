@@ -46,5 +46,5 @@ func (ts *BatchWrapped) GetPath() []string {
 
 // GetTimestamp returns the submit timestamp of the batch
 func (ts *BatchWrapped) GetTimestamp() time.Time {
-	return ts.GetTimestamp()
+	return time.Unix(ts.Timestamp.Seconds, int64(ts.Timestamp.Nanos)).UTC()
 }

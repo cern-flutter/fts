@@ -17,9 +17,9 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
+	"github.com/golang/protobuf/proto"
 	"github.com/satori/go.uuid"
 	"gitlab.cern.ch/flutter/fts/config"
 	"gitlab.cern.ch/flutter/fts/messages"
@@ -46,29 +46,33 @@ func (s *Scheduler) RunConsumer() error {
 			if !ok {
 				return nil
 			}
-			batch := messages.Batch{}
-			if err = json.Unmarshal(msg.Body, &batch); err != nil {
+			decorated := BatchWrapped{}
+			if err = proto.Unmarshal(msg.Body, &decorated.Batch); err != nil {
 				msg.Nack()
 				log.WithError(err).Error("Could not parse batch")
+				continue
 			}
 
-			l := log.WithField("batch", batch.Timestamp)
+			l := log.WithField("batch", decorated.GetID())
+			for _, t := range decorated.Transfers {
+				l.Debugf("Transfer %s", t.TransferId)
+			}
 
 			// We are only interested on SUBMITTED batches
-			switch batch.State {
+			switch decorated.State {
 			case messages.Batch_SUBMITTED:
-				err = s.echelon.Enqueue(&BatchWrapped{batch})
+				err = s.echelon.Enqueue(&decorated)
 				if err != nil {
 					return err
 				}
 				l.Info("Enqueued batch job")
 			case messages.Batch_DONE:
-				if err = s.scoreboard.ReleaseSlot(&batch); err != nil {
+				if err = s.scoreboard.ReleaseSlot(&decorated.Batch); err != nil {
 					return err
 				}
 				l.Info("Batch job done, released slots")
 			default:
-				l.Debug("Ignoring batch with state ", batch.State)
+				l.Debug("Ignoring batch with state ", decorated.State)
 			}
 			msg.Ack()
 		case error, ok := <-errorChannel:
