@@ -11,6 +11,11 @@ flutter-broker:
     - "8161:8161"
     - "61613:61613"
 
+flutter-redis:
+  image: redis
+  ports:
+    - "6379:6379"
+
 flutter-rest:
   image: gitlab-registry.cern.ch/flutter/fts-rest:latest
   links:
