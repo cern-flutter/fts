@@ -27,7 +27,7 @@ flutter-rest:
     - "8446:8446"
 
 flutter-schedd:
-  image: gitlab-registry.cern.ch/flutter/fts:flutter
+  image: gitlab-registry.cern.ch/flutter/fts:schedd
   links:
     - flutter-broker
     - flutter-redis
