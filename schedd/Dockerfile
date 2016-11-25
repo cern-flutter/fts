@@ -15,13 +15,12 @@
 
 # FTS Scheduler container
 
-FROM docker.cern.ch/flutter-dev/base
+FROM enil/alpine-supervisord 
 
-# Supervisor configuration
-COPY "docker/scheduler/supervisord.conf" "/etc/supervisor/conf.d/supervisord.conf"
+# Fix ld issue on alpine images
+RUN mkdir /lib64
+RUN ln -s /lib/ld-musl-x86_64.so.1 /lib64/ld-linux-x86-64.so.2
 
-# Start supervisor
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+COPY "schedd" "/app/schedd"
+COPY "supervisord.conf" "/etc/supervisord.conf"
 
-# Copy required binaries
-ADD "artifacts/bin/fts-schedd" "/usr/bin/"

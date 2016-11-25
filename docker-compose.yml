@@ -25,3 +25,11 @@ flutter-rest:
     - dev.env
   ports:
     - "8446:8446"
+
+flutter-schedd:
+  image: gitlab-registry.cern.ch/flutter/fts:flutter
+  links:
+    - flutter-broker
+    - flutter-redis
+  env_file:
+    - dev.env
