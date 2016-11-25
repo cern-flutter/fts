@@ -1,25 +1,23 @@
-image: docker:latest
-
 stages:
-    - base-images
-    - test
+    - build
+    - image
 
-create-build-image:
-    stage: base-images
-    before_script:
-        - docker info
-        - docker login -p "${REGISTRY_PASSWD}" -u "${REGISTRY_USER}" docker.cern.ch
-    script:
-        - docker build -t docker.cern.ch/flutter-dev/build -f docker/build/Dockerfile .
-        - docker push docker.cern.ch/flutter-dev/build
-    after_script:
-        - docker logout docker.cern.ch
+before_script:
+    - wget -q -O /usr/bin/docker https://get.docker.com/builds/Linux/x86_64/docker-1.10.3
+    - chmod +x /usr/bin/docker
+    - mkdir -p ${GOPATH}/src/gitlab.cern.ch/flutter/
+    - ln -s `pwd` ${GOPATH}/src/gitlab.cern.ch/flutter/fts
+    - cd ${GOPATH}/src/gitlab.cern.ch/flutter/fts/
+    - git remote set-url origin https://gitlab.cern.ch/flutter/fts.git
+    - docker login -p "${REGISTRY_PASSWD}" -u "${REGISTRY_USER}" "${CI_REGISTRY}"
+after_script:
+    - docker logout "${CI_REGISTRY}"
 
-flutter-tests:
-    stage: test
-    image: docker-ro.cern.ch/flutter-dev/build
-    script:
-        - rm -r "$GOPATH/src/gitlab.cern.ch/flutter/fts"
-        - ln -sfv "$(pwd -P)" "$GOPATH/src/gitlab.cern.ch/flutter"
-        - cd "$GOPATH/src/gitlab.cern.ch/flutter/fts"
-        - make test 
+build-schedd:
+  image: golang:onbuild
+  stage: build
+  script:
+    - cd schedd
+    - go get -v
+    - go build -v
+    - docker build --pull --no-cache=true --rm=true -t "${CI_REGISTRY_IMAGE}:schedd" .
