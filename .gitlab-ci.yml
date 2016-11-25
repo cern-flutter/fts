@@ -2,6 +2,7 @@ stages:
     - build
     - image
 
+
 before_script:
     - curl -fsSLO https://get.docker.com/builds/Linux/x86_64/docker-1.11.2.tgz && tar --strip-components=1 -xvzf docker-1.11.2.tgz -C /usr/local/bin
     - mkdir -p ${GOPATH}/src/gitlab.cern.ch/flutter/
@@ -12,6 +13,7 @@ before_script:
 after_script:
     - docker logout "${CI_REGISTRY}"
 
+
 build-schedd:
   image: golang:onbuild
   stage: build
@@ -21,3 +23,13 @@ build-schedd:
     - go build -v
     - docker build --pull --no-cache=true --rm=true -t "${CI_REGISTRY_IMAGE}:schedd" .
     - docker push "${CI_REGISTRY_IMAGE}:schedd"
+
+build-optimizerd:
+  image: golang:onbuild
+  stage: build
+  script:
+    - cd optimizerd
+    - go get -v
+    - go build -v
+    - docker build --pull --no-cache=true --rm=true -t "${CI_REGISTRY_IMAGE}:optimizerd" .
+    - docker push "${CI_REGISTRY_IMAGE}:optimizerd"

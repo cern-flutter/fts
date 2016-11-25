@@ -33,3 +33,10 @@ flutter-schedd:
     - flutter-redis
   env_file:
     - dev.env
+
+flutter-optimizerd:
+  image: gitlab-registry.cern.ch/flutter/fts:optimizerd
+  links:
+    - flutter-broker
+  env_file:
+    - dev.env
