@@ -43,3 +43,13 @@ build-stagerd:
     - go build -v
     - docker build --pull --no-cache=true --rm=true -t "${CI_REGISTRY_IMAGE}:stagerd" .
     - docker push "${CI_REGISTRY_IMAGE}:stagerd"
+
+build-stored:
+  image: golang:onbuild
+  stage: build
+  script:
+    - cd stored
+    - go get -v
+    - go build -v
+    - docker build --pull --no-cache=true --rm=true -t "${CI_REGISTRY_IMAGE}:stored" .
+    - docker push "${CI_REGISTRY_IMAGE}:stored"

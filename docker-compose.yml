@@ -54,3 +54,10 @@ flutter-stagerd:
     - flutter-broker
   env_file:
     - dev.env
+
+flutter-stored:
+  image: gitlab-registry.cern.ch/flutter/fts:stored
+  links:
+    - flutter-broker
+  env_file:
+    - dev.env
