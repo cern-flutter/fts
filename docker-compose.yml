@@ -47,3 +47,10 @@ flutter-publishd:
     - flutter-broker
   env_file:
     - dev.env
+
+flutter-stagerd:
+  image: gitlab-registry.cern.ch/flutter/fts:stagerd
+  links:
+    - flutter-broker
+  env_file:
+    - dev.env
