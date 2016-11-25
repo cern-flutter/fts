@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# FTS Scheduler container
+# FTS optimizer container
 
 FROM enil/alpine-supervisord
 

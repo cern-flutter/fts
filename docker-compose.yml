@@ -40,3 +40,10 @@ flutter-optimizerd:
     - flutter-broker
   env_file:
     - dev.env
+
+flutter-publishd:
+  image: gitlab-registry.cern.ch/flutter/fts:publishd
+  links:
+    - flutter-broker
+  env_file:
+    - dev.env

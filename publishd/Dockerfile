@@ -13,15 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# FTS Publisher container
+# FTS publisher container
 
-FROM docker.cern.ch/flutter-dev/base
+FROM enil/alpine-supervisord
 
-# Supervisor configuration
-COPY "docker/publisher/supervisord.conf" "/etc/supervisor/conf.d/supervisord.conf"
+# Fix ld issue on alpine images
+RUN mkdir /lib64
+RUN ln -s /lib/ld-musl-x86_64.so.1 /lib64/ld-linux-x86-64.so.2
 
-# Start supervisor
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
-
-# Copy required binaries
-ADD "artifacts/bin/fts-publishd" "/usr/bin/"
+COPY "publishd" "/app/publishd"
+COPY "supervisord.conf" "/etc/supervisord.conf"
