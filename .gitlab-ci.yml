@@ -3,8 +3,7 @@ stages:
     - image
 
 before_script:
-    - wget -q -O /usr/bin/docker https://get.docker.com/builds/Linux/x86_64/docker-1.11.2
-    - chmod +x /usr/bin/docker
+    - curl -fsSLO https://get.docker.com/builds/Linux/x86_64/docker-1.11.2.tgz && tar --strip-components=1 -xvzf docker-1.11.2.tgz -C /usr/local/bin
     - mkdir -p ${GOPATH}/src/gitlab.cern.ch/flutter/
     - ln -s `pwd` ${GOPATH}/src/gitlab.cern.ch/flutter/fts
     - cd ${GOPATH}/src/gitlab.cern.ch/flutter/fts/
