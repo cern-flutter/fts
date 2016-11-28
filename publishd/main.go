@@ -23,9 +23,9 @@ import (
 	"github.com/spf13/viper"
 	"gitlab.cern.ch/flutter/fts/config"
 	"gitlab.cern.ch/flutter/fts/sink"
-	"gitlab.cern.ch/flutter/fts/util"
 	"gitlab.cern.ch/flutter/stomp"
 	"time"
+	"os"
 )
 
 var publishCmd = cobra.Command{
@@ -36,8 +36,10 @@ var publishCmd = cobra.Command{
 		reconnectMaxRetries := viper.Get("stomp.reconnect.retry").(int)
 		reconnectRetries := 0
 
+		hostname, _ := os.Hostname()
+
 		stompParams := stomp.ConnectionParameters{
-			ClientID: "fts-publishd-" + util.Hostname(),
+			ClientID: "fts-publishd-" + hostname,
 			Address:  viper.Get("stomp").(string),
 			Login:    viper.Get("stomp.login").(string),
 			Passcode: viper.Get("stomp.passcode").(string),
@@ -79,11 +81,11 @@ func main() {
 
 	cobra.OnInitialize(func() {
 		if *configFile != "" {
-			util.ReadConfigFile(*configFile)
+			config.ReadConfigFile(*configFile)
 		}
 		logFile := viper.Get("publishd.log").(string)
 		if logFile != "" {
-			util.RedirectLog(logFile)
+			config.RedirectLog(logFile)
 		}
 		if viper.Get("publishd.debug").(bool) {
 			log.SetLevel(log.DebugLevel)

@@ -23,8 +23,8 @@ import (
 	"github.com/spf13/viper"
 	"gitlab.cern.ch/flutter/fts/config"
 	"gitlab.cern.ch/flutter/fts/sink"
-	"gitlab.cern.ch/flutter/fts/util"
 	"gitlab.cern.ch/flutter/stomp"
+	"os"
 	"time"
 )
 
@@ -36,8 +36,10 @@ var optimizerCmd = cobra.Command{
 		reconnectMaxRetries := viper.Get("stomp.reconnect.retry").(int)
 		reconnectRetries := 0
 
+		hostname, _ := os.Hostname()
+
 		stompParams := stomp.ConnectionParameters{
-			ClientID: "fts-optimizerd-" + util.Hostname(),
+			ClientID: "fts-optimizerd-" + hostname,
 			Address:  viper.Get("stomp").(string),
 			Login:    viper.Get("stomp.login").(string),
 			Passcode: viper.Get("stomp.passcode").(string),
@@ -79,11 +81,11 @@ func main() {
 
 	cobra.OnInitialize(func() {
 		if *configFile != "" {
-			util.ReadConfigFile(*configFile)
+			config.ReadConfigFile(*configFile)
 		}
 		logFile := viper.Get("optimizerd.log").(string)
 		if logFile != "" {
-			util.RedirectLog(logFile)
+			config.RedirectLog(logFile)
 		}
 		if viper.Get("optimizerd.debug").(bool) {
 			log.SetLevel(log.DebugLevel)

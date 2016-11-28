@@ -17,8 +17,11 @@
 package config
 
 import (
+	log "github.com/Sirupsen/logrus"
+	logstash "github.com/bshuster-repo/logrus-logstash-hook"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"os"
 )
 
 // BindStompFlags registers common stomp related flags
@@ -34,4 +37,28 @@ func BindStompFlags(cmd *cobra.Command) {
 	viper.BindPFlag("stomp.reconnect.wait", cmd.Flags().Lookup("StompReconnectWait"))
 	viper.BindPFlag("stomp.login", cmd.Flags().Lookup("StompLogin"))
 	viper.BindPFlag("stomp.passcode", cmd.Flags().Lookup("StompPasscode"))
+}
+
+// ReadConfigFile reads the configuration file passed as parameter, aborts on error
+func ReadConfigFile(configFile string) {
+	if f, err := os.Open(configFile); err != nil {
+		log.Fatal(err)
+	} else {
+		defer f.Close()
+		viper.SetConfigType("yaml")
+		if err = viper.ReadConfig(f); err != nil {
+			log.Fatal(err)
+		}
+		log.Info("Read configuration from ", configFile)
+	}
+}
+
+// RedirectLog redirects logrus to the output file, aborts on error
+func RedirectLog(logFile string) {
+	if f, err := os.OpenFile(logFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0660); err != nil {
+		log.Panic(err)
+	} else {
+		log.SetOutput(f)
+		log.SetFormatter(&logstash.LogstashFormatter{})
+	}
 }
