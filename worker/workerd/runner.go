@@ -23,6 +23,7 @@ import (
 	"gitlab.cern.ch/flutter/fts/config"
 	"gitlab.cern.ch/flutter/fts/messages"
 	"gitlab.cern.ch/flutter/stomp"
+	"syscall"
 )
 
 type (
@@ -30,6 +31,7 @@ type (
 	Runner struct {
 		Context  *Worker
 		consumer *stomp.Consumer
+		producer *stomp.Producer
 	}
 )
 
@@ -38,6 +40,9 @@ func (r *Runner) Run() error {
 	var err error
 
 	if r.consumer, err = stomp.NewConsumer(r.Context.params.StompParams); err != nil {
+		return err
+	}
+	if r.producer, err = stomp.NewProducer(r.Context.params.StompParams); err != nil {
 		return err
 	}
 
@@ -61,25 +66,33 @@ func (r *Runner) Run() error {
 			m.Ack()
 
 			go func() {
-				var batch messages.Batch
-				if err := proto.Unmarshal(m.Body, &batch); err != nil {
+				batch := &messages.Batch{}
+				if err := proto.Unmarshal(m.Body, batch); err != nil {
 					log.Error("Malformed task: ", err)
+					return
 				} else if err := batch.Validate(); err != nil {
 					log.Error("Invalid task: ", err)
-				} else if batch.State == messages.Batch_READY {
-					log.WithField("batch", batch.GetID()).Info("Received batch")
-					if pid, err := RunTransfer(r.Context, &batch); err != nil {
-						log.Error("Failed to run the batch: ", err)
-						// TODO: Notify failure
-					} else {
-						log.Info("Spawn with pid ", pid)
-						if err := r.Context.supervisor.RegisterProcess(&batch, pid); err != nil {
-							log.WithError(err).Error("Failed to register batch into local DB")
-						}
-					}
-				} else {
-					log.WithField("batch", batch.GetID()).Info("Ignoring batch in state ", batch.State)
+					return
 				}
+
+				l := log.WithField("batch", batch.GetID())
+
+				if batch.State != messages.Batch_READY {
+					log.WithField("batch", batch.GetID()).Info("Ignoring batch in state ", batch.State)
+					return
+				}
+
+				l.Info("Received batch")
+				if pid, err := RunTransfer(r.Context, batch); err != nil {
+					l.Error("Failed to run the batch: ", err)
+					r.notifyBatchFailure(batch, err.Error(), int32(syscall.EINPROGRESS))
+				} else {
+					l.Info("Spawn with pid ", pid)
+					if err := r.Context.supervisor.RegisterProcess(batch, pid); err != nil {
+						l.WithError(err).Error("Failed to register batch into local DB")
+					}
+				}
+
 			}()
 		case error, ok := <-errorChannel:
 			if !ok {
@@ -87,5 +100,28 @@ func (r *Runner) Run() error {
 			}
 			log.WithError(error).Warn("Got an error from the subcription channel")
 		}
+	}
+}
+
+// notifyBatchFailure sends an error when failed to run the transfer
+func (r *Runner) notifyBatchFailure(batch *messages.Batch, error string, code int32) {
+	batch.State = messages.Batch_DONE
+	for _, t := range batch.Transfers {
+		t.Info = &messages.TransferInfo{
+			Error: &messages.TransferError{
+				Scope:       messages.TransferError_AGENT,
+				Code:        code,
+				Description: error,
+				Recoverable: false,
+			},
+		}
+	}
+	payload, err := proto.Marshal(batch)
+	if err != nil {
+		log.Panicf("Failed to marshal the message with the error: %s", err.Error())
+	}
+	err = r.producer.Send(config.TransferTopic, string(payload), stomp.SendParams{Persistent: true})
+	if err != nil {
+		log.Error(err)
 	}
 }
