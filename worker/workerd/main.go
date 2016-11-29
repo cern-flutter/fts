@@ -23,6 +23,7 @@ import (
 	"gitlab.cern.ch/flutter/fts/config"
 	"gitlab.cern.ch/flutter/stomp"
 	"os"
+	"os/exec"
 	"time"
 )
 
@@ -39,9 +40,14 @@ var workerCmd = &cobra.Command{
 		reconnectMaxRetries := viper.Get("stomp.reconnect.retry").(int)
 		reconnectRetries := 0
 
+		urlcopy, err := exec.LookPath(viper.Get("worker.urlcopy").(string))
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		params := Params{
-			Database:     	 viper.Get("worker.database").(string),
-			URLCopyBin:      viper.Get("worker.urlcopy").(string),
+			Database:        viper.Get("worker.database").(string),
+			URLCopyBin:      urlcopy,
 			TransferLogPath: viper.Get("worker.transfers.logs").(string),
 			DirQPath:        viper.Get("worker.dirq").(string),
 			PidDBPath:       viper.Get("worker.piddb").(string),
