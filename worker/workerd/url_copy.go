@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-package worker
+package main
 
 import (
 	"encoding/json"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/satori/go.uuid"
-	"gitlab.cern.ch/flutter/fts/credentials/x509"
-	"gitlab.cern.ch/flutter/fts/types/tasks"
+	"gitlab.cern.ch/flutter/fts/messages"
 	"os"
 	"os/exec"
 	"path"
@@ -30,7 +29,7 @@ import (
 	"syscall"
 )
 
-func writeProxy(proxy *x509.Proxy, path string) error {
+func writeProxy(proxy *X509Proxy, path string) error {
 	var err error
 	var fd *os.File
 	if fd, err = os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0600); err != nil {
@@ -38,13 +37,13 @@ func writeProxy(proxy *x509.Proxy, path string) error {
 	}
 	defer fd.Close()
 
-	if _, err = fd.Write(proxy.Encode()); err != nil {
+	if _, err = fd.Write(proxy.Proxy); err != nil {
 		return fmt.Errorf("Could not write the proxy file: %s", err.Error())
 	}
 	return nil
 }
 
-func writeTaskSet(task *tasks.Batch, path string) error {
+func writeTaskSet(task *messages.Batch, path string) error {
 	var err error
 	var fd *os.File
 
@@ -68,15 +67,13 @@ func writeTaskSet(task *tasks.Batch, path string) error {
 }
 
 // RunTransfer spawns a new url-copy, and returns its pid on success
-func RunTransfer(c *Worker, task *tasks.Batch) (int, error) {
-	var proxy x509.Proxy
-	err := c.x509d.Call("X509.Get", &task.DelegationID, &proxy)
-	if err != nil {
-		return 0, fmt.Errorf("Failed to get the user proxy: %s", err.Error())
-	}
+func RunTransfer(c *Worker, task *messages.Batch) (int, error) {
+	var proxy X509Proxy
+	var err error
+	// TODO: Get proxy
 
 	taskFile := path.Join("/tmp/", uuid.NewV1().String())
-	pemFile := path.Join("/tmp/", fmt.Sprintf("x509up_h%s", task.DelegationID))
+	pemFile := path.Join("/tmp/", fmt.Sprintf("x509up_h%s", task.CredId))
 
 	if err = writeProxy(&proxy, pemFile); err != nil {
 		return 0, err

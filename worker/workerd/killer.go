@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package worker
+package main
 
 import (
 	"encoding/json"
 	log "github.com/Sirupsen/logrus"
 	"github.com/satori/go.uuid"
 	"gitlab.cern.ch/flutter/fts/config"
-	"gitlab.cern.ch/flutter/fts/types/tasks"
+	"gitlab.cern.ch/flutter/fts/messages"
 	"gitlab.cern.ch/flutter/stomp"
 )
 
@@ -58,7 +58,7 @@ func (k *Killer) Run() error {
 			if !ok {
 				return nil
 			}
-			var kill tasks.Kill
+			var kill messages.Kill
 			if err := json.Unmarshal(m.Body, &kill); err != nil {
 				log.WithError(err).Error("Malformed kill message")
 			} else {

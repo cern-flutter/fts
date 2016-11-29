@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package worker
+package main
 
 import (
 	log "github.com/Sirupsen/logrus"
@@ -49,7 +49,7 @@ type (
 )
 
 // New creates a new Worker Context
-func New(params Params) (w *Worker, err error) {
+func NewWorker(params Params) (w *Worker, err error) {
 	w = &Worker{
 		params: params,
 	}

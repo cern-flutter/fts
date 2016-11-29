@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-package worker
+package main
 
 import (
 	"github.com/satori/go.uuid"
-	"gitlab.cern.ch/flutter/fts/types/tasks"
+	"gitlab.cern.ch/flutter/fts/messages"
 	"os"
 	"os/exec"
 	"syscall"
@@ -39,7 +39,7 @@ func TestKillProc(t *testing.T) {
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
-	supervisor.RegisterProcess(&tasks.Batch{}, cmd.Process.Pid)
+	supervisor.RegisterProcess(&messages.Batch{}, cmd.Process.Pid)
 	time.Sleep(500 * time.Millisecond)
 
 	supervisor.Kill(cmd.Process.Pid)
@@ -63,7 +63,7 @@ func TestSigKill(t *testing.T) {
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
-	supervisor.RegisterProcess(&tasks.Batch{}, cmd.Process.Pid)
+	supervisor.RegisterProcess(&messages.Batch{}, cmd.Process.Pid)
 	time.Sleep(500 * time.Millisecond)
 
 	supervisor.Kill(cmd.Process.Pid)
@@ -97,18 +97,16 @@ func TestStoreBatch(t *testing.T) {
 	}
 	defer supervisor.Close()
 
-	batch1 := &tasks.Batch{
-		Timestamp: time.Now(),
-		Type:      tasks.BatchBulk,
-		State:     tasks.BatchReady,
-		Transfers: []*tasks.Transfer{{TransferID: tasks.TransferID(uuid.NewV4().String())}},
+	batch1 := &messages.Batch{
+		Submitted: messages.Now(),
+		State:     messages.Batch_READY,
+		Transfers: []*messages.Transfer{{TransferId: uuid.NewV4().String()}},
 	}
 	pid1 := 64
-	batch2 := &tasks.Batch{
-		Timestamp: time.Now(),
-		Type:      tasks.BatchBulk,
-		State:     tasks.BatchReady,
-		Transfers: []*tasks.Transfer{{TransferID: tasks.TransferID(uuid.NewV4().String())}},
+	batch2 := &messages.Batch{
+		Submitted: messages.Now(),
+		State:     messages.Batch_READY,
+		Transfers: []*messages.Transfer{{TransferId: uuid.NewV4().String()}},
 	}
 	pid2 := 896
 
@@ -119,7 +117,7 @@ func TestStoreBatch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pids := supervisor.GetPidsForKillTask(&tasks.Kill{TransferID: batch1.Transfers[0].TransferID})
+	pids := supervisor.GetPidsForKillTask(&messages.Kill{TransferId: batch1.Transfers[0].TransferId})
 	if pids[0] != pid1 {
 		t.Fatal("Expecting ", pid1, " got ", pids[0])
 	}
@@ -127,7 +125,7 @@ func TestStoreBatch(t *testing.T) {
 	if err := supervisor.delete(pid1); err != nil {
 		t.Fatal(err)
 	}
-	pids = supervisor.GetPidsForKillTask(&tasks.Kill{TransferID: batch1.Transfers[0].TransferID})
+	pids = supervisor.GetPidsForKillTask(&messages.Kill{TransferId: batch1.Transfers[0].TransferId})
 	if len(pids) != 0 {
 		t.Fatal("Batch should have been removed")
 	}

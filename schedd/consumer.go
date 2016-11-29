@@ -46,33 +46,33 @@ func (s *Scheduler) RunConsumer() error {
 			if !ok {
 				return nil
 			}
-			decorated := BatchWrapped{}
-			if err = proto.Unmarshal(msg.Body, &decorated.Batch); err != nil {
+			batch := messages.Batch{}
+			if err = proto.Unmarshal(msg.Body, &batch); err != nil {
 				msg.Nack()
 				log.WithError(err).Error("Could not parse batch")
 				continue
 			}
 
-			l := log.WithField("batch", decorated.GetID())
-			for _, t := range decorated.Transfers {
+			l := log.WithField("batch", batch.GetID())
+			for _, t := range batch.Transfers {
 				l.Debugf("Transfer %s", t.TransferId)
 			}
 
 			// We are only interested on SUBMITTED batches
-			switch decorated.State {
+			switch batch.State {
 			case messages.Batch_SUBMITTED:
-				err = s.echelon.Enqueue(&decorated)
+				err = s.echelon.Enqueue(&batch)
 				if err != nil {
 					return err
 				}
 				l.Info("Enqueued batch job")
 			case messages.Batch_DONE:
-				if err = s.scoreboard.ReleaseSlot(&decorated.Batch); err != nil {
+				if err = s.scoreboard.ReleaseSlot(&batch); err != nil {
 					return err
 				}
 				l.Info("Batch job done, released slots")
 			default:
-				l.Debug("Ignoring batch with state ", decorated.State)
+				l.Debug("Ignoring batch with state ", batch.State)
 			}
 			msg.Ack()
 		case error, ok := <-errorChannel:

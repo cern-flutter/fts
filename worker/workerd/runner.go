@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package worker
+package main
 
 import (
 	"encoding/json"
 	log "github.com/Sirupsen/logrus"
 	"github.com/satori/go.uuid"
 	"gitlab.cern.ch/flutter/fts/config"
-	"gitlab.cern.ch/flutter/fts/types/tasks"
+	"gitlab.cern.ch/flutter/fts/messages"
 	"gitlab.cern.ch/flutter/stomp"
 )
 
@@ -61,12 +61,12 @@ func (r *Runner) Run() error {
 			m.Ack()
 
 			go func() {
-				var batch tasks.Batch
+				var batch messages.Batch
 				if err := json.Unmarshal(m.Body, &batch); err != nil {
 					log.Error("Malformed task: ", err)
 				} else if err := batch.Validate(); err != nil {
 					log.Error("Invalid task: ", err)
-				} else if batch.State == tasks.BatchReady {
+				} else if batch.State == messages.Batch_READY {
 					log.WithField("batch", batch.GetID()).Info("Received batch")
 					if pid, err := RunTransfer(r.Context, &batch); err != nil {
 						log.Error("Failed to run the batch: ", err)

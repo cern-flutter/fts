@@ -34,18 +34,18 @@ func (s *Scheduler) RunProducer() error {
 
 	for {
 		var err error
-		decorated := &BatchWrapped{}
-		for err = s.echelon.Dequeue(decorated); err == nil; err = s.echelon.Dequeue(decorated) {
-			l := log.WithField("batch", decorated.GetID())
-			decorated.State = messages.Batch_READY
+		batch := &messages.Batch{}
+		for err = s.echelon.Dequeue(batch); err == nil; err = s.echelon.Dequeue(batch) {
+			l := log.WithField("batch", batch.GetID())
+			batch.State = messages.Batch_READY
 
 			var data []byte
-			if data, err = proto.Marshal(&decorated.Batch); err != nil {
+			if data, err = proto.Marshal(batch); err != nil {
 				l.WithError(err).Error("Failed to marshal task")
 				continue
 			}
 
-			if err := s.scoreboard.ConsumeSlot(&decorated.Batch); err != nil {
+			if err := s.scoreboard.ConsumeSlot(batch); err != nil {
 				l.WithError(err).Error("Failed to mark task as busy")
 			} else if err = s.producer.Send(config.TransferTopic, string(data), sendParams); err != nil {
 				l.WithError(err).Error("Failed to send the batch to que message queue")
@@ -53,11 +53,11 @@ func (s *Scheduler) RunProducer() error {
 
 			if err != nil {
 				l.Warn("Trying to requeue the batch")
-				if err = s.echelon.Enqueue(decorated); err != nil {
+				if err = s.echelon.Enqueue(batch); err != nil {
 					l.Panic(err)
 				}
 			} else {
-				for _, t := range decorated.Transfers {
+				for _, t := range batch.Transfers {
 					l.Info("Scheduled ", t.JobId, "/", t.TransferId)
 				}
 			}

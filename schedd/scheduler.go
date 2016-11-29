@@ -22,6 +22,7 @@ import (
 	"gitlab.cern.ch/flutter/echelon"
 	"gitlab.cern.ch/flutter/stomp"
 	"time"
+	"gitlab.cern.ch/flutter/fts/messages"
 )
 
 type (
@@ -70,7 +71,7 @@ func NewScheduler(params stomp.ConnectionParameters, redisAddr string) (*Schedul
 		Prefix: "fts-sched-",
 	}
 
-	if sched.echelon, err = echelon.New(&BatchWrapped{}, echelonRedis, sched.scoreboard); err != nil {
+	if sched.echelon, err = echelon.New(&messages.Batch{}, echelonRedis, sched.scoreboard); err != nil {
 		return nil, err
 	}
 	if err = sched.echelon.Restore(); err != nil {

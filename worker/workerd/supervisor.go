@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package worker
+package main
 
 import (
 	"encoding/json"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/syndtr/goleveldb/leveldb"
-	"gitlab.cern.ch/flutter/fts/types/tasks"
+	"gitlab.cern.ch/flutter/fts/messages"
 	"golang.org/x/sys/unix"
 	"os"
 	"strconv"
@@ -128,18 +128,18 @@ func (superv *Supervisor) watch(pid int) {
 	}
 }
 
-func (superv *Supervisor) storeProcess(batch *tasks.Batch, pid int) error {
+func (superv *Supervisor) storeProcess(batch *messages.Batch, pid int) error {
 	data, err := json.Marshal(batch)
 	if err != nil {
 		return err
 	}
 	pidStr := fmt.Sprint(pid)
-	log.Debug("Storing batch ", batch.GetID(), " with pid ", pid)
+	log.Debug("Storing batch with pid ", pid)
 	return superv.db.Put([]byte(pidStr), data, nil)
 }
 
 // RegisterProcess stores a batch together with its pid on the local db
-func (superv *Supervisor) RegisterProcess(batch *tasks.Batch, pid int) error {
+func (superv *Supervisor) RegisterProcess(batch *messages.Batch, pid int) error {
 	go superv.watch(pid)
 	return superv.storeProcess(batch, pid)
 }
@@ -152,12 +152,12 @@ func (superv *Supervisor) delete(pid int) error {
 }
 
 // GetPidsForKillTask returns the PIDs associated with the batch pointed by the kill task
-func (superv *Supervisor) GetPidsForKillTask(kill *tasks.Kill) []int {
+func (superv *Supervisor) GetPidsForKillTask(kill *messages.Kill) []int {
 	pids := make([]int, 0, 1)
 	iter := superv.db.NewIterator(nil, nil)
 	for iter.Next() {
 		var err error
-		var batch tasks.Batch
+		var batch messages.Batch
 		var pid int
 
 		if err = json.Unmarshal(iter.Value(), &batch); err != nil {
@@ -170,9 +170,9 @@ func (superv *Supervisor) GetPidsForKillTask(kill *tasks.Kill) []int {
 
 		found := false
 		for _, transfer := range batch.Transfers {
-			found = (kill.TransferID != "" && kill.TransferID == transfer.TransferID) || (kill.JobID != "" && kill.JobID == transfer.JobID)
+			found = (kill.TransferId != "" && kill.TransferId == transfer.TransferId)
 			if found {
-				log.Info("Found kill target ", transfer.TransferID)
+				log.Info("Found kill target ", transfer.TransferId)
 				found = true
 				break
 			}
