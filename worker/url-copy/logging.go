@@ -21,7 +21,7 @@ import (
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"gitlab.cern.ch/dmc/go-gfal2"
-	"gitlab.cern.ch/flutter/fts/types/tasks"
+	"gitlab.cern.ch/flutter/fts/messages"
 	"os"
 	"path"
 	"syscall"
@@ -58,16 +58,16 @@ func setupLogging() {
 }
 
 // Generate a transfer ID from the running transfer.
-func generateTransferID(transfer *tasks.Transfer) string {
-	return fmt.Sprintf("%s_%s_%d", transfer.JobID, transfer.TransferID, transfer.Retry)
+func generateTransferID(transfer *messages.Transfer) string {
+	return fmt.Sprintf("%s_%d", transfer.TransferId, transfer.Retry)
 }
 
 // Generate the full log path associated to a transfer.
-func generateLogPath(transfer *tasks.Transfer) (log string, err error) {
-	pairName := fmt.Sprintf("%s__%s", transfer.Source.GetHostName(), transfer.Destination.GetHostName())
+func generateLogPath(transfer *messages.Transfer) (log string, err error) {
+	transferUniqueRun := fmt.Sprintf("%s__%d", transfer.TransferId, transfer.Retry)
 	dateName := time.Now().Format("2006-01-02")
 
-	parent := path.Join(*logBaseDir, dateName, pairName)
+	parent := path.Join(*logBaseDir, dateName, transferUniqueRun)
 	err = os.MkdirAll(parent, 0755)
 	log = path.Join(parent, generateTransferID(transfer))
 	return

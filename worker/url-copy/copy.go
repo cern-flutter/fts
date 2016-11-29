@@ -22,8 +22,7 @@ import (
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"gitlab.cern.ch/dmc/go-gfal2"
-	"gitlab.cern.ch/flutter/fts/types/perf"
-	"gitlab.cern.ch/flutter/fts/types/tasks"
+	"gitlab.cern.ch/flutter/fts/messages"
 	"gitlab.cern.ch/flutter/fts/version"
 	"io/ioutil"
 	"os"
@@ -42,12 +41,12 @@ type urlCopy struct {
 	failures int
 
 	mutex         sync.Mutex
-	batch         tasks.Batch
+	batch         messages.Batch
 	transferIndex int
 	terminalSent  bool
 
 	// Transfer being run
-	transfer *tasks.Transfer
+	transfer *messages.Transfer
 }
 
 // NewUrlCopy creates a new instance of UrlCopy, initialized using the task
@@ -71,7 +70,7 @@ func newURLCopy(taskfile string) *urlCopy {
 
 	// All transfers, from now on, will have a status
 	for index := range copy.batch.Transfers {
-		copy.batch.Transfers[index].Info = &tasks.TransferInfo{}
+		copy.batch.Transfers[index].Info = &messages.TransferInfo{}
 	}
 
 	copy.context, err = gfal2.NewContext()
@@ -82,7 +81,7 @@ func newURLCopy(taskfile string) *urlCopy {
 }
 
 // next returns the next transfer in the list, nil on end
-func (copy *urlCopy) next() *tasks.Transfer {
+func (copy *urlCopy) next() *messages.Transfer {
 	copy.mutex.Lock()
 	defer copy.mutex.Unlock()
 
@@ -95,94 +94,93 @@ func (copy *urlCopy) next() *tasks.Transfer {
 }
 
 // setupGfal2ForTransfer prepares the gfal2 context for this particular transfer.
-func (copy *urlCopy) setupGfal2ForTransfer(transfer *tasks.Transfer) {
+func (copy *urlCopy) setupGfal2ForTransfer(transfer *messages.Transfer) {
 	copy.context.SetOptBoolean("GRIDFTP PLUGIN", "SESSION_REUSE", true)
-	copy.context.SetOptBoolean("GRIDFTP PLUGIN", "ENABLE_UDT", transfer.Parameters.EnableUdt)
-	copy.context.SetOptBoolean("GRIDFTP PLUGIN", "IPV6", transfer.Parameters.EnableIpv6)
 	copy.context.SetUserAgent("url_copy", version.Version)
-	copy.context.SetOptString("X509", "CERT", fmt.Sprintf("/tmp/proxy_%s.pem", copy.batch.DelegationID))
-	copy.context.SetOptString("X509", "KEY", fmt.Sprintf("/tmp/proxy_%s.pem", copy.batch.DelegationID))
-
-	switch transfer.Parameters.ChecksumMode {
-	case tasks.ChecksumRelaxed:
-		copy.context.SetOptBoolean("SRM PLUGIN", "ALLOW_EMPTY_SOURCE_CHECKSUM", true)
-		copy.context.SetOptBoolean("GRIDFTP PLUGIN", "SKIP_SOURCE_CHECKSUM", true)
-		copy.context.SetOptString("XROOTD PLUGIN", "COPY_CHECKSUM_MODE", "target")
-	case tasks.ChecksumStrict:
-		copy.context.SetOptBoolean("SRM PLUGIN", "ALLOW_EMPTY_SOURCE_CHECKSUM", false)
-		copy.context.SetOptBoolean("GRIDFTP PLUGIN", "SKIP_SOURCE_CHECKSUM", false)
-		copy.context.SetOptString("XROOTD PLUGIN", "COPY_CHECKSUM_MODE", "end2end")
-	}
-
 	if *x509proxy != "" {
 		copy.context.SetOptString("X509", "CERT", *x509proxy)
 		copy.context.SetOptString("X509", "KEY", *x509proxy)
+	} else {
+		copy.context.SetOptString("X509", "CERT", fmt.Sprintf("/tmp/proxy_%s.pem", copy.batch.CredId))
+		copy.context.SetOptString("X509", "KEY", fmt.Sprintf("/tmp/proxy_%s.pem", copy.batch.CredId))
+	}
+
+	if transfer.Parameters != nil {
+		copy.context.SetOptBoolean("GRIDFTP PLUGIN", "ENABLE_UDT", transfer.Parameters.EnableUdt)
+		copy.context.SetOptBoolean("GRIDFTP PLUGIN", "IPV6", transfer.Parameters.EnableIpv6)
 	}
 }
 
 // createCopyHandler creates and prepares a gfal2 copy handler to run the transfer.
-func (copy *urlCopy) createCopyHandler(transfer *tasks.Transfer) (handler *gfal2.TransferHandler, err gfal2.GError) {
+func (copy *urlCopy) createCopyHandler(transfer *messages.Transfer) (handler *gfal2.TransferHandler, err gfal2.GError) {
 	handler, err = copy.context.NewTransferHandler()
 	if err != nil {
 		return
 	}
 
 	handler.SetCreateParentDir(true)
-	handler.SetStrictCopy(transfer.Parameters.OnlyCopy)
-	handler.SetOverwrite(transfer.Parameters.Overwrite)
-	if transfer.Parameters.SourceSpaceToken != nil {
-		handler.SetSourceSpacetoken(*transfer.Parameters.SourceSpaceToken)
-	}
-	if transfer.Parameters.DestSpaceToken != nil {
-		handler.SetDestinationSpaceToken(*transfer.Parameters.DestSpaceToken)
-	}
+	if transfer.Parameters != nil {
+		handler.SetStrictCopy(transfer.Parameters.OnlyCopy)
+		handler.SetOverwrite(transfer.Parameters.Overwrite)
+		handler.SetSourceSpacetoken(transfer.Parameters.SourceSpacetoken)
+		handler.SetDestinationSpaceToken(transfer.Parameters.DestSpacetoken)
 
-	if transfer.Parameters.ChecksumMode != tasks.ChecksumSkip {
-		handler.EnableChecksum(true)
-	}
-	if transfer.Checksum != nil {
-		parts := strings.SplitN(string(*transfer.Checksum), ":", 2)
-		if len(parts) == 2 {
-			handler.SetChecksum(parts[0], parts[1])
-		} else {
-			log.Warning("Invalid checksum passed. Ignoring.")
+		checksumMode := 0
+		switch transfer.Parameters.ChecksumMode {
+		case messages.TransferParameters_SOURCE:
+			checksumMode = gfal2.ChecksumSource
+		case messages.TransferParameters_TARGET:
+			checksumMode = gfal2.ChecksumTarget
+		case messages.TransferParameters_END2END:
+			checksumMode = gfal2.ChecksumBoth
+		}
+		if checksumMode != 0 {
+			parts := strings.SplitN(transfer.Checksum, ":", 2)
+			if len(parts) == 2 {
+				handler.SetChecksum(checksumMode, parts[0], parts[1])
+			} else {
+				log.Warning("Invalid checksum passed. Ignoring.")
+			}
+
 		}
 	}
 
 	handler.AddMonitorCallback(copy)
-
 	return
 }
 
 // Called by gfal2 when there are performance markers available.
 func (copy *urlCopy) NotifyPerformanceMarker(marker gfal2.Marker) {
-	perf := &perf.Marker{
-		JobID:              copy.transfer.JobID,
-		TransferID:         copy.transfer.TransferID,
-		SourceStorage:      copy.transfer.Source.GetStorageName(),
-		DestinationStorage: copy.transfer.Destination.GetStorageName(),
-		Throughput:         marker.AvgThroughput,
-		TransferredBytes:   marker.BytesTransferred,
+	perf := &messages.PerformanceMarker{
+		TransferId:  copy.transfer.TransferId,
+		Throughput:  float32(marker.AvgThroughput),
+		Transferred: marker.BytesTransferred,
+		SourceSe:    "TODO",
+		DestSe:      "TODO",
 	}
 	if err := copy.reportPerformance(perf); err != nil {
 		log.Error(err)
 	}
-	copy.transfer.Info.Stats.TransferredBytes = int64(marker.BytesTransferred)
+	copy.transfer.Info.Stats.Transferred = marker.BytesTransferred
 	copy.transfer.Info.Stats.Throughput = float32(marker.AvgThroughput)
 }
 
 // runTransfer prepares the context and copy handler, and run the transfer. It sends the start message,
 // and returns the termination message, but it does not send it.
-func (copy *urlCopy) runTransfer(transfer *tasks.Transfer) {
+func (copy *urlCopy) runTransfer(transfer *messages.Transfer) {
 	var err error
 
-	transfer.Info = &tasks.TransferInfo{
+	transfer.Info = &messages.TransferInfo{
 		Error:   nil,
 		Message: "Starting transfer",
-		Stats:   &tasks.TransferRunStatistics{},
-		LogFile: nil,
+		Stats: &messages.TransferRunStatistics{
+			Intervals: &messages.TransferIntervals{},
+		},
+		LogFile: "",
 	}
-	transfer.Info.Stats.Intervals.Total.Start = time.Now()
+	transfer.Info.Stats.Intervals.Total = &messages.Interval{
+		Start: messages.Now(),
+	}
 
 	logFile, err := generateLogPath(transfer)
 	if err != nil {
@@ -190,7 +188,7 @@ func (copy *urlCopy) runTransfer(transfer *tasks.Transfer) {
 	}
 	if !*logToStderr {
 		redirectLog(logFile)
-		transfer.Info.LogFile = &logFile
+		transfer.Info.LogFile = logFile
 	}
 
 	log.Info("Transfer accepted")
@@ -201,9 +199,9 @@ func (copy *urlCopy) runTransfer(transfer *tasks.Transfer) {
 	copy.setupGfal2ForTransfer(transfer)
 	params, gerr := copy.createCopyHandler(transfer)
 	if gerr != nil {
-		transfer.Info.Error = &tasks.TransferError{
-			Scope:       tasks.ScopeAgent,
-			Code:        gerr.Code(),
+		transfer.Info.Error = &messages.TransferError{
+			Scope:       messages.TransferError_AGENT,
+			Code:        int32(gerr.Code()),
 			Description: gerr.Error(),
 			Recoverable: false,
 		}
@@ -211,65 +209,54 @@ func (copy *urlCopy) runTransfer(transfer *tasks.Transfer) {
 	}
 
 	log.Infof("Proxy: %s", copy.context.GetOptString("X509", "CERT"))
-	log.Infof("Job id: %s", transfer.JobID)
-	log.Infof("Transfer id: %s", transfer.TransferID)
-	log.Infof("Source url: %s", transfer.Source.String())
-	log.Infof("Dest url: %s", transfer.Destination.String())
+	log.Infof("Transfer id: %s", transfer.TransferId)
+	log.Infof("Source url: %s", transfer.Source)
+	log.Infof("Dest url: %s", transfer.Destination)
 	log.Infof("Overwrite enabled: %t", params.GetOverwrite())
+	if transfer.Parameters != nil {
+		log.Infof("Dest space token: %s", transfer.Parameters.DestSpacetoken)
+		log.Infof("Source space token: %s", transfer.Parameters.SourceSpacetoken)
+	}
+	log.Infof("Checksum: %s", transfer.Checksum)
+	log.Infof("User filesize: %d", transfer.Filesize)
 
-	if transfer.Parameters.DestSpaceToken != nil {
-		log.Infof("Dest space token: %s", *transfer.Parameters.DestSpaceToken)
-	}
-	if transfer.Parameters.SourceSpaceToken != nil {
-		log.Infof("Source space token: %s", *transfer.Parameters.SourceSpaceToken)
-	}
-	if transfer.Checksum != nil {
-		log.Infof("Checksum: %s", *transfer.Checksum)
-	}
-
-	if transfer.Filesize != nil {
-		log.Infof("User filesize: %d", *transfer.Filesize)
-	}
-
-	log.Infof("Multihop: %t", copy.batch.Type == tasks.BatchMultihop)
 	log.Infof("IPv6: %t", copy.context.GetOptBoolean("GRIDFTP PLUGIN", "IPV6"))
 	log.Infof("UDT: %t", copy.context.GetOptBoolean("GRIDFTP PLUGIN", "ENABLE_UDT"))
 	if copy.context.GetOptBoolean("BDII", "ENABLED") {
 		log.Infof("BDII: %s", copy.context.GetOptString("BDII", "LCG_GFAL_INFOSYS"))
 	}
 
-	srcStat, gerr := copy.context.Stat(transfer.Source.String())
+	srcStat, gerr := copy.context.Stat(transfer.Source)
 	if gerr != nil {
-		transfer.Info.Error = &tasks.TransferError{
-			Scope:       tasks.ScopeSource,
-			Code:        gerr.Code(),
+		transfer.Info.Error = &messages.TransferError{
+			Scope:       messages.TransferError_SOURCE,
+			Code:        int32(gerr.Code()),
 			Description: gerr.Error(),
-			Recoverable: IsRecoverable(tasks.ScopeSource, gerr.Code()),
+			Recoverable: IsRecoverable(messages.TransferError_SOURCE, gerr.Code()),
 		}
 		return
 	}
 
 	log.Infof("File size: %d", srcStat.Size())
 
-	if transfer.Filesize != nil && *transfer.Filesize != 0 && *transfer.Filesize != srcStat.Size() {
-		transfer.Info.Error = &tasks.TransferError{
-			Scope: tasks.ScopeSource,
-			Code:  syscall.EINVAL,
+	if transfer.Filesize != 0 && transfer.Filesize != uint64(srcStat.Size()) {
+		transfer.Info.Error = &messages.TransferError{
+			Scope: messages.TransferError_SOURCE,
+			Code:  int32(syscall.EINVAL),
 			Description: fmt.Sprintf(
 				"Source and user provide file sizes do not match: %d != %d",
-				srcStat.Size(), *transfer.Filesize,
+				srcStat.Size(), transfer.Filesize,
 			),
 			Recoverable: false,
 		}
 		return
-	} else if transfer.Filesize == nil {
-		transfer.Filesize = new(int64)
-		*transfer.Filesize = srcStat.Size()
+	} else {
+		transfer.Filesize = uint64(srcStat.Size())
 	}
 
 	var timeout time.Duration
-	if transfer.Parameters.Timeout != 0 {
-		timeout = time.Duration(transfer.Parameters.Timeout * int(time.Second))
+	if transfer.Parameters != nil && transfer.Parameters.Timeout != nil && transfer.Parameters.Timeout.Seconds > 0 {
+		timeout = time.Duration(transfer.Parameters.Timeout.Seconds)
 	} else {
 		timeout = AdjustTimeoutBasedOnSize(srcStat.Size()) + (600 * time.Second)
 	}
@@ -278,7 +265,7 @@ func (copy *urlCopy) runTransfer(transfer *tasks.Transfer) {
 	// Run the copy in a separate goroutine so we can catch timeouts
 	done := make(chan bool, 1)
 	go func() {
-		gerr = params.CopyFile(transfer.Source.String(), transfer.Destination.String())
+		gerr = params.CopyFile(transfer.Source, transfer.Destination)
 		done <- true
 	}()
 
@@ -286,32 +273,32 @@ func (copy *urlCopy) runTransfer(transfer *tasks.Transfer) {
 	case _ = <-done:
 	case <-time.After(timeout):
 		copy.context.Cancel()
-		transfer.Info.Error = &tasks.TransferError{
-			Scope:       tasks.ScopeTransfer,
-			Code:        syscall.ETIMEDOUT,
+		transfer.Info.Error = &messages.TransferError{
+			Scope:       messages.TransferError_TRANSFER,
+			Code:        int32(syscall.ETIMEDOUT),
 			Description: "Transfer timed out",
 			Recoverable: true,
 		}
 		return
 	}
 
-	transfer.Info.Stats.Intervals.Total.End = time.Now()
+	transfer.Info.Stats.Intervals.Total.End = messages.Now()
 
 	if gerr != nil {
-		transfer.Info.Error = &tasks.TransferError{
-			Scope:       tasks.ScopeTransfer,
-			Code:        gerr.Code(),
+		transfer.Info.Error = &messages.TransferError{
+			Scope:       messages.TransferError_TRANSFER,
+			Code:        int32(gerr.Code()),
 			Description: gerr.Error(),
-			Recoverable: IsRecoverable(tasks.ScopeTransfer, gerr.Code()),
+			Recoverable: IsRecoverable(messages.TransferError_TRANSFER, gerr.Code()),
 		}
 	} else {
 		// Adjust size and throughput if the protocol didn't give us perf.markers
-		if transfer.Info.Stats.TransferredBytes == 0 {
-			transfer.Info.Stats.TransferredBytes = srcStat.Size()
+		if transfer.Info.Stats.Transferred == 0 {
+			transfer.Info.Stats.Transferred = uint64(srcStat.Size())
 		}
 		if transfer.Info.Stats.Throughput == 0 {
 			transfer.Info.Stats.Throughput = float32(
-				float64(srcStat.Size()) / (transfer.Info.Stats.Intervals.Total.Seconds()),
+				float64(srcStat.Size()) / (transfer.Info.Stats.Intervals.Total.Elapsed().Seconds()),
 			)
 		}
 	}
@@ -321,51 +308,19 @@ func (copy *urlCopy) runTransfer(transfer *tasks.Transfer) {
 // sendTerminalForRemaining send a terminal message for any transfer than hasn't run yet.
 // This could be due to external cancellation, or multihop failures.
 func (copy *urlCopy) setStateForRemaining() {
-	var remainingInfo *tasks.TransferInfo
-	var remainingState tasks.TransferState
+	// TODO
+	var remainingInfo *messages.TransferInfo
+	var remainingState messages.Transfer_State
 
-	switch copy.batch.Type {
-	// For multihop, one failure = shortcut to all remaining failed
-	case tasks.BatchMultihop:
-		if copy.failures > 0 {
-			remainingState = tasks.TransferFailed
-			remainingInfo = &tasks.TransferInfo{
-				Error: &tasks.TransferError{
-					Scope:       tasks.ScopeTransfer,
-					Code:        syscall.ECANCELED,
-					Description: "Transfer canceled because a previous hop failed",
-					Recoverable: false,
-				},
-				Stats:   nil,
-				LogFile: nil,
-			}
-		} else {
-			remainingState = tasks.TransferOnHold
-			remainingInfo = &tasks.TransferInfo{
-				Stats:   nil,
-				LogFile: nil,
-			}
-		}
-	// For multisources, one success = shortcut to all remaining to unused
-	case tasks.BatchMultisource:
-		if copy.failures == 0 {
-			remainingState = tasks.TransferUnused
-			remainingInfo = &tasks.TransferInfo{
-				Stats:   nil,
-				LogFile: nil,
-			}
-		} else {
-			remainingState = tasks.TransferOnHold
-			remainingInfo = &tasks.TransferInfo{
-				Stats:   nil,
-				LogFile: nil,
-			}
-		}
-	// For the rest, do nothing
-	default:
-		return
+	remainingState = messages.Transfer_FAILED
+	remainingInfo = &messages.TransferInfo{
+		Error: &messages.TransferError{
+			Scope:       messages.TransferError_AGENT,
+			Code:        int32(syscall.ECANCELED),
+			Description: "Transfer canceled because a previous hop failed",
+			Recoverable: false,
+		},
 	}
-
 	for transfer := copy.next(); transfer != nil; transfer = copy.next() {
 		transfer.State = remainingState
 		transfer.Info = remainingInfo
@@ -379,10 +334,10 @@ func (copy *urlCopy) Run() {
 		copy.runTransfer(copy.transfer)
 
 		if copy.transfer.Info.Error != nil {
-			if copy.transfer.Info.Error.Code == syscall.ECANCELED {
-				copy.transfer.State = tasks.TransferCanceled
+			if copy.transfer.Info.Error.Code == int32(syscall.ECANCELED) {
+				copy.transfer.State = messages.Transfer_CANCELED
 			} else {
-				copy.transfer.State = tasks.TransferFailed
+				copy.transfer.State = messages.Transfer_FAILED
 			}
 			if copy.transfer.Info.Error.Recoverable {
 				log.Errorf("Recoverable error: [%d] %s",
@@ -393,13 +348,11 @@ func (copy *urlCopy) Run() {
 			}
 			copy.failures++
 		} else {
-			copy.transfer.State = tasks.TransferFinished
+			copy.transfer.State = messages.Transfer_FINISHED
 			log.Info("Transfer finished successfully")
 		}
 
-		if copy.batch.Type == tasks.BatchMultihop || copy.batch.Type == tasks.BatchMultisource {
-			break
-		}
+		// TODO: Multihop, multisources
 	}
 
 	copy.setStateForRemaining()
@@ -418,20 +371,20 @@ func (copy *urlCopy) Cancel() {
 func (copy *urlCopy) Panic(format string, args ...interface{}) {
 	// Common error for all
 	message := fmt.Sprintf(format, args...)
-	error := &tasks.TransferError{
-		Scope:       tasks.ScopeAgent,
-		Code:        syscall.EINTR,
+	error := &messages.TransferError{
+		Scope:       messages.TransferError_AGENT,
+		Code:        int32(syscall.EINTR),
 		Description: message,
 		Recoverable: false,
 	}
 	// Not run yet
 	for transfer := copy.next(); transfer != nil; transfer = copy.next() {
-		transfer.State = tasks.TransferFailed
+		transfer.State = messages.Transfer_FAILED
 		transfer.Info.Error = error
 	}
 	// The one running
 	if copy.transfer != nil {
-		copy.transfer.State = tasks.TransferFailed
+		copy.transfer.State = messages.Transfer_FAILED
 		copy.transfer.Info.Error = error
 	}
 	copy.reportBatchEnd()

@@ -17,7 +17,7 @@
 package main
 
 import (
-	"gitlab.cern.ch/flutter/fts/types/tasks"
+	"gitlab.cern.ch/flutter/fts/messages"
 	"math"
 	"syscall"
 	"time"
@@ -26,7 +26,7 @@ import (
 // IsRecoverable returns true if the error code/scope is considered an error
 // caused by overload or transient errors. It returns false if the error would happen again
 // if retried.
-func IsRecoverable(scope string, code syscall.Errno) bool {
+func IsRecoverable(scope messages.TransferError_Scope, code syscall.Errno) bool {
 	if syscall.Errno(code) == syscall.ETIMEDOUT {
 		return true
 	}
@@ -36,7 +36,7 @@ func IsRecoverable(scope string, code syscall.Errno) bool {
 	}
 
 	switch scope {
-	case tasks.ScopeSource:
+	case messages.TransferError_SOURCE:
 		switch syscall.Errno(code) {
 		case syscall.ENOENT,
 			syscall.EPERM,
@@ -48,7 +48,7 @@ func IsRecoverable(scope string, code syscall.Errno) bool {
 			syscall.EPROTONOSUPPORT:
 			return false
 		}
-	case tasks.ScopeDestination:
+	case messages.TransferError_DESTINATION:
 		switch syscall.Errno(code) {
 		case syscall.EPERM,
 			syscall.EACCES,

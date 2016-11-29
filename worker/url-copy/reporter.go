@@ -20,11 +20,9 @@ import (
 	"encoding/json"
 	"flag"
 	log "github.com/Sirupsen/logrus"
-	"gitlab.cern.ch/flutter/fts/types/perf"
-	"gitlab.cern.ch/flutter/fts/types/tasks"
+	"gitlab.cern.ch/flutter/fts/messages"
 	"gitlab.cern.ch/flutter/go-dirq"
 	"path"
-	"time"
 )
 
 var dirqBasePath = flag.String("DirQ", "/var/lib/fts3", "Base dir for dirq messages")
@@ -36,7 +34,7 @@ func (copy *urlCopy) reportBatchStart() {
 	if err != nil {
 		log.Panic(err)
 	}
-	copy.batch.State = tasks.BatchRunning
+	copy.batch.State = messages.Batch_RUNNING
 	data, err := json.Marshal(copy.batch)
 	if err != nil {
 		log.Panic(err)
@@ -57,12 +55,12 @@ func (copy *urlCopy) reportBatchEnd() {
 
 	nFinished := 0
 	for _, t := range copy.batch.Transfers {
-		if t.Info != nil && t.State == tasks.TransferFinished {
+		if t.Info != nil && t.State == messages.Transfer_FINISHED {
 			nFinished++
 		}
 	}
 
-	copy.batch.State = tasks.BatchDone
+	copy.batch.State = messages.Batch_DONE
 
 	endPath := path.Join(*dirqBasePath, "end")
 	endDirq, err := dirq.New(endPath)
@@ -81,9 +79,8 @@ func (copy *urlCopy) reportBatchEnd() {
 }
 
 // ReportPerformance sends the progress of a transfer.
-func (copy *urlCopy) reportPerformance(perf *perf.Marker) error {
-	perf.Timestamp = time.Now()
-
+func (copy *urlCopy) reportPerformance(perf *messages.PerformanceMarker) error {
+	perf.Timestamp = messages.Now()
 	perfPath := path.Join(*dirqBasePath, "perf")
 	perfDirq, err := dirq.New(perfPath)
 	if err != nil {
