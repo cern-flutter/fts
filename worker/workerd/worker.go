@@ -17,10 +17,11 @@
 package main
 
 import (
+	"database/sql"
 	log "github.com/Sirupsen/logrus"
-	"gitlab.cern.ch/flutter/http-jsonrpc"
+	_ "github.com/lib/pq"
 	"gitlab.cern.ch/flutter/stomp"
-	"net/rpc"
+	"net/url"
 )
 
 type (
@@ -30,15 +31,15 @@ type (
 		URLCopyBin      string
 		TransferLogPath string
 		DirQPath        string
-		X509Address     string
+		Database        string
 		PidDBPath       string
 	}
 
 	// Worker is used by each subsystem
 	Worker struct {
 		params     Params
-		x509d      *rpc.Client
 		supervisor *Supervisor
+		db         *sql.DB
 	}
 
 	// Reply coming from the credential service
@@ -47,6 +48,15 @@ type (
 		Echo    string
 	}
 )
+
+// Connects to a remote database from a url-like connection string
+func connectDatabase(dbUrl string) (*sql.DB, error) {
+	parsed, err := url.Parse(dbUrl)
+	if err != nil {
+		return nil, err
+	}
+	return sql.Open(parsed.Scheme, parsed.String())
+}
 
 // New creates a new Worker Context
 func NewWorker(params Params) (w *Worker, err error) {
@@ -59,24 +69,20 @@ func NewWorker(params Params) (w *Worker, err error) {
 	}
 	log.Debugf("Started supervisor with DB %s", params.PidDBPath)
 
-	codec, err := http_jsonrpc.NewClientCodec(params.X509Address)
-	if err != nil {
+	if w.db, err = connectDatabase(params.Database); err != nil {
 		return
 	}
-	w.x509d = rpc.NewClientWithCodec(codec)
-
-	var x509Reply pingReply
-	if err = w.x509d.Call("X509.Ping", "Echo", &x509Reply); err != nil {
+	if err = w.db.Ping(); err != nil {
 		return
 	}
 
-	log.Debugf("Connected to X509 %s (%s)", params.X509Address, x509Reply.Version)
+	log.Debugf("Connected to the database")
 	return
 }
 
 // Close finalizes all the connections and processes
 func (c *Worker) Close() {
-	c.x509d.Close()
+	c.db.Close()
 	c.supervisor.Close()
 }
 
@@ -97,5 +103,5 @@ func (c *Worker) Run() error {
 		c.supervisor.Run()
 	}()
 
-	return <- errors
+	return <-errors
 }

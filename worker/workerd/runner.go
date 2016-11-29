@@ -17,8 +17,8 @@
 package main
 
 import (
-	"encoding/json"
 	log "github.com/Sirupsen/logrus"
+	"github.com/golang/protobuf/proto"
 	"github.com/satori/go.uuid"
 	"gitlab.cern.ch/flutter/fts/config"
 	"gitlab.cern.ch/flutter/fts/messages"
@@ -62,7 +62,7 @@ func (r *Runner) Run() error {
 
 			go func() {
 				var batch messages.Batch
-				if err := json.Unmarshal(m.Body, &batch); err != nil {
+				if err := proto.Unmarshal(m.Body, &batch); err != nil {
 					log.Error("Malformed task: ", err)
 				} else if err := batch.Validate(); err != nil {
 					log.Error("Invalid task: ", err)

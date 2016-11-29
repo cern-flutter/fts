@@ -17,9 +17,9 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
+	"github.com/golang/protobuf/proto"
 	"github.com/satori/go.uuid"
 	"gitlab.cern.ch/flutter/fts/messages"
 	"os"
@@ -53,7 +53,7 @@ func writeTaskSet(task *messages.Batch, path string) error {
 	defer fd.Close()
 
 	var data []byte
-	if data, err = json.Marshal(task); err != nil {
+	if data, err = proto.Marshal(task); err != nil {
 		os.Remove(path)
 		return fmt.Errorf("Failed to serialize the task: %s", err.Error())
 	}

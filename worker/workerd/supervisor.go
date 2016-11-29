@@ -17,9 +17,9 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
+	"github.com/golang/protobuf/proto"
 	"github.com/syndtr/goleveldb/leveldb"
 	"gitlab.cern.ch/flutter/fts/messages"
 	"golang.org/x/sys/unix"
@@ -129,7 +129,7 @@ func (superv *Supervisor) watch(pid int) {
 }
 
 func (superv *Supervisor) storeProcess(batch *messages.Batch, pid int) error {
-	data, err := json.Marshal(batch)
+	data, err := proto.Marshal(batch)
 	if err != nil {
 		return err
 	}
@@ -160,7 +160,7 @@ func (superv *Supervisor) GetPidsForKillTask(kill *messages.Kill) []int {
 		var batch messages.Batch
 		var pid int
 
-		if err = json.Unmarshal(iter.Value(), &batch); err != nil {
+		if err = proto.Unmarshal(iter.Value(), &batch); err != nil {
 			log.WithError(err).Error("Failed to parse entry in the local db")
 			continue
 		}

@@ -17,9 +17,9 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
+	"github.com/golang/protobuf/proto"
 	"gitlab.cern.ch/flutter/fts/config"
 	"gitlab.cern.ch/flutter/fts/messages"
 	"gitlab.cern.ch/flutter/go-dirq"
@@ -88,8 +88,7 @@ func (f *Forwarder) forwardStart() error {
 			config.TransferTopic,
 			string(start.Message),
 			stomp.SendParams{
-				Persistent:  true,
-				ContentType: "application/json",
+				Persistent: true,
 			},
 		); err != nil {
 			return err
@@ -108,7 +107,7 @@ func (f *Forwarder) forwardEnd() error {
 		}
 
 		batch := messages.Batch{}
-		if err := json.Unmarshal(end.Message, &batch); err != nil {
+		if err := proto.Unmarshal(end.Message, &batch); err != nil {
 			log.WithError(err).Warn("Failed to parse end message")
 			continue
 		}
@@ -117,8 +116,7 @@ func (f *Forwarder) forwardEnd() error {
 			config.TransferTopic,
 			string(end.Message),
 			stomp.SendParams{
-				Persistent:  true,
-				ContentType: "application/json",
+				Persistent: true,
 			},
 		); err != nil {
 			return err
@@ -139,8 +137,7 @@ func (f *Forwarder) forwardPerf() error {
 			config.PerformanceTopic,
 			string(perf.Message),
 			stomp.SendParams{
-				Persistent:  false,
-				ContentType: "application/json",
+				Persistent: false,
 			},
 		); err != nil {
 			return err
