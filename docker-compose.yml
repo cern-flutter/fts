@@ -61,3 +61,11 @@ flutter-stored:
     - flutter-broker
   env_file:
     - dev.env
+
+flutter-workerd:
+  image: gitlab-registry.cern.ch/flutter/fts:workerd
+  links:
+    - flutter-broker
+    - flutter-db
+  env_file:
+    - dev.env

@@ -13,18 +13,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# FTS REST container
+# FTS Woker container
 
-FROM docker.cern.ch/flutter-dev/base
+FROM gitlab-registry.cern.ch/dmc/gfal2
 
-# gfal2 plugins
-RUN yum install -y gfal2-plugin-srm gfal2-plugin-gridftp gfal2-plugin-http gfal2-plugin-xrootd gfal2-plugin-mock
-
-# Supervisor configuration
-COPY "docker/worker/supervisord.conf" "/etc/supervisor/conf.d/supervisord.conf"
-
-# Start supervisor
+# supervisord
+RUN yum install -y supervisor
+COPY "supervisord.conf" "/etc/supervisor/conf.d/supervisord.conf"
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
 
+# Dirq dir
+RUN mkdir "/var/lib/fts" && chown nobody.nobody "/var/lib/fts"
+
 # Copy required binaries
-ADD "artifacts/bin/fts-x509d" "artifacts/bin/url-copy" "artifacts/bin/fts-workerd" "/usr/bin/"
+ENV PATH="${PATH}:/app/"
+COPY "workerd/workerd" "url-copy/url-copy" "/app/"
