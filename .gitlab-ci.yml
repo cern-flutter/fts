@@ -9,7 +9,7 @@ before_script:
     - ln -s `pwd` ${GOPATH}/src/gitlab.cern.ch/flutter/fts
     - cd ${GOPATH}/src/gitlab.cern.ch/flutter/fts/
     - git remote set-url origin https://gitlab.cern.ch/flutter/fts.git
-#    - docker login -p "${REGISTRY_PASSWD}" -u "${REGISTRY_USER}" "${CI_REGISTRY}"
+    - docker login -p "${REGISTRY_PASSWD}" -u "${REGISTRY_USER}" "${CI_REGISTRY}"
 after_script:
     - docker logout "${CI_REGISTRY}"
 
