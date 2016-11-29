@@ -21,10 +21,12 @@ import "time"
 type (
 	// X509Proxy stores a delegated credential
 	X509Proxy struct {
-		DelegationId    string
-		UserDn          string
 		TerminationTime time.Time
-		VomsAttributes  string
 		Proxy           []byte
 	}
 )
+
+// HasExpired return true if the termination time is in the past
+func (x *X509Proxy) HasExpired() bool {
+	return x.TerminationTime.Sub(time.Now()) <= 0
+}

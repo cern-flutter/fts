@@ -17,6 +17,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/golang/protobuf/proto"
@@ -70,7 +71,17 @@ func writeTaskSet(task *messages.Batch, path string) error {
 func RunTransfer(c *Worker, task *messages.Batch) (int, error) {
 	var proxy X509Proxy
 	var err error
-	// TODO: Get proxy
+
+	err = c.db.QueryRow(
+		"SELECT proxy, termination_time FROM t_x509_proxies WHERE delegation_id = $1",
+		task.CredId,
+	).Scan(&proxy.Proxy, &proxy.TerminationTime)
+	if err != nil {
+		return 0, err
+	}
+	if proxy.HasExpired() {
+		return 0, errors.New("Proxy expired")
+	}
 
 	taskFile := path.Join("/tmp/", uuid.NewV1().String())
 	pemFile := path.Join("/tmp/", fmt.Sprintf("x509up_h%s", task.CredId))
