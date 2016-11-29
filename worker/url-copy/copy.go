@@ -17,10 +17,10 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
+	"github.com/golang/protobuf/proto"
 	"gitlab.cern.ch/dmc/go-gfal2"
 	"gitlab.cern.ch/flutter/fts/messages"
 	"gitlab.cern.ch/flutter/fts/version"
@@ -59,7 +59,7 @@ func newURLCopy(taskfile string) *urlCopy {
 	if err != nil {
 		log.Panic("Could not open the task file: ", err.Error())
 	}
-	err = json.Unmarshal(raw, &copy.batch)
+	err = proto.Unmarshal(raw, &copy.batch)
 	if err != nil {
 		log.Panic("Failed to parse the task file: ", err.Error())
 	}

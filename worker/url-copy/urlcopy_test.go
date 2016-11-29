@@ -17,8 +17,8 @@
 package main
 
 import (
-	"encoding/json"
 	"github.com/Sirupsen/logrus"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/duration"
 	"gitlab.cern.ch/flutter/fts/messages"
 	"gitlab.cern.ch/flutter/go-dirq"
@@ -43,7 +43,7 @@ func init() {
 // Serialize serializes the task into a temporary file, so it can be passed to the
 // copy function.
 func Serialize(t *testing.T, task *messages.Batch) string {
-	bytes, err := json.Marshal(task)
+	bytes, err := proto.Marshal(task)
 	if err != nil {
 		t.Error(err)
 	}
@@ -70,7 +70,7 @@ func ConsumeStartMessages(t *testing.T) *messages.Batch {
 	for msg := range startDirq.Consume() {
 		if msg.Error == nil {
 			batch := &messages.Batch{}
-			err = json.Unmarshal(msg.Message, batch)
+			err = proto.Unmarshal(msg.Message, batch)
 			if err != nil {
 				t.Error(err)
 			} else {
@@ -99,7 +99,7 @@ func ConsumeEndMessages(t *testing.T) *messages.Batch {
 	for msg := range endDirq.Consume() {
 		if msg.Error == nil {
 			batch := &messages.Batch{}
-			err = json.Unmarshal(msg.Message, batch)
+			err = proto.Unmarshal(msg.Message, batch)
 			if err != nil {
 				t.Error(err)
 			} else {

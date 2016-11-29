@@ -17,9 +17,9 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	log "github.com/Sirupsen/logrus"
+	"github.com/golang/protobuf/proto"
 	"gitlab.cern.ch/flutter/fts/messages"
 	"gitlab.cern.ch/flutter/go-dirq"
 	"path"
@@ -35,7 +35,7 @@ func (copy *urlCopy) reportBatchStart() {
 		log.Panic(err)
 	}
 	copy.batch.State = messages.Batch_RUNNING
-	data, err := json.Marshal(copy.batch)
+	data, err := proto.Marshal(&copy.batch)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -67,7 +67,7 @@ func (copy *urlCopy) reportBatchEnd() {
 	if err != nil {
 		log.Panic(err)
 	}
-	data, err := json.Marshal(copy.batch)
+	data, err := proto.Marshal(&copy.batch)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -86,7 +86,7 @@ func (copy *urlCopy) reportPerformance(perf *messages.PerformanceMarker) error {
 	if err != nil {
 		return err
 	}
-	data, err := json.Marshal(perf)
+	data, err := proto.Marshal(perf)
 	if err != nil {
 		return err
 	}
